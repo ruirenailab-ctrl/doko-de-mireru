@@ -65,11 +65,13 @@
   }
   /* ブランドロゴ */
   .brand {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 9px;
-    margin: 0 0 13px;
+    margin: 0;
     cursor: pointer;
     user-select: none;
   }
@@ -509,19 +511,21 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* 設定ボタン＆設定モーダル */
-  .settings-btn {
-    position: absolute; top: 14px; right: 14px;
-    width: 34px; height: 34px; border-radius: 50%;
-    border: 1px solid #333944; background: var(--card); color: var(--text);
-    font-size: 16px; cursor: pointer; line-height: 1;
+  /* ヘッダー上段（お気に入り・ロゴ・設定をflexで確実に中央揃え） */
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 13px;
   }
-
-  /* お気に入りボタン（ヘッダー左上） */
-  .fav-btn {
-    position: absolute; top: 14px; left: 14px;
-    width: 34px; height: 34px; border-radius: 50%;
-    border: 1px solid #333944; background: var(--card); color: var(--text);
+  .fav-btn, .settings-btn {
+    position: relative;
+    flex: none;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
     font-size: 16px; cursor: pointer; line-height: 1;
   }
   .fav-btn.has { color: var(--danger); border-color: rgba(255,107,107,0.5); }
@@ -576,18 +580,20 @@
 </head>
 <body>
 <header>
-  <button id="favBtn" class="fav-btn" title="お気に入り">♡</button>
-  <button id="settingsBtn" class="settings-btn" title="マイサービス設定">⚙</button>
-  <div class="brand" id="homeLink" title="ホーム">
-    <svg class="logo-mark" viewBox="0 0 512 512" aria-hidden="true">
-      <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#7c5cff"/><stop offset=".55" stop-color="#b14cff"/><stop offset="1" stop-color="#ff5c8a"/>
-      </linearGradient></defs>
-      <rect width="512" height="512" rx="116" fill="url(#bg)"/>
-      <path d="M256 78C181 78 121 138 121 214c0 86 84 146 135 228 51-82 135-142 135-228 0-76-60-136-135-136z" fill="#fff"/>
-      <path d="M232 166v96l82-48z" fill="url(#bg)"/>
-    </svg>
-    <span class="logo-text">dokomiru</span>
+  <div class="header-top">
+    <button id="favBtn" class="fav-btn" title="お気に入り">♡</button>
+    <div class="brand" id="homeLink" title="ホーム">
+      <svg class="logo-mark" viewBox="0 0 512 512" aria-hidden="true">
+        <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7c5cff"/><stop offset=".55" stop-color="#b14cff"/><stop offset="1" stop-color="#ff5c8a"/>
+        </linearGradient></defs>
+        <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+        <path d="M256 78C181 78 121 138 121 214c0 86 84 146 135 228 51-82 135-142 135-228 0-76-60-136-135-136z" fill="#fff"/>
+        <path d="M232 166v96l82-48z" fill="url(#bg)"/>
+      </svg>
+      <span class="logo-text">dokomiru</span>
+    </div>
+    <button id="settingsBtn" class="settings-btn" title="マイサービス設定">⚙</button>
   </div>
   <div class="search-row">
     <div class="search-field">
@@ -751,9 +757,10 @@ async function renderHome() {
 
   // 各行は独立に読み込み（1つ失敗しても他は表示）
   // 🔥 今週の話題の映画＝直近1週間で視聴・検索トラフィックが多い作品（TMDB trending）
-  loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true);
+  // trendingはサーバー側で配信絞り込み不可のため、配信状況を確認して日本で観られない作品を除外
+  loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true, true);
   // 📺 今週の話題のドラマ
-  loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true);
+  loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true, true);
   // 📈 いま日本で人気の配信作品＝日本で見放題配信中 × 人気順（popularity＝TMDBのトラフィック指標）
   loadRail("home-popular", "/discover/movie",
     {
@@ -777,9 +784,16 @@ async function renderHome() {
       include_adult: "false"
     },
     "movie", false);
-  // ⭐ 日本の名作・高評価（邦画）
+  // ⭐ 日本の名作・高評価（邦画）＝日本で視聴/購入できる作品のみ
   loadRail("home-toprated", "/discover/movie",
-    { with_original_language: "ja", sort_by: "vote_average.desc", "vote_count.gte": "300", include_adult: "false" },
+    {
+      with_original_language: "ja",
+      sort_by: "vote_average.desc",
+      "vote_count.gte": "300",
+      include_adult: "false",
+      watch_region: REGION,
+      with_watch_monetization_types: "flatrate|free|ads|rent|buy"
+    },
     "movie", false);
   loadCategories();
 }
@@ -789,15 +803,38 @@ function rowSkeleton(id, title) {
     + '<div id="' + id + '"><div class="status"><div class="spinner sm"></div></div></div></section>';
 }
 
-async function loadRail(containerId, path, params, defaultType, ranked) {
+// 日本で「見られる/買える」か（見放題/無料/広告つき無料/レンタル/購入のいずれか）。
+// providers応答をセッション内キャッシュして無駄打ちを防ぐ。
+const availabilityCache = new Map(); // "type:id" -> bool
+async function isWatchableJP(type, id) {
+  const key = type + ":" + id;
+  if (availabilityCache.has(key)) return availabilityCache.get(key);
+  try {
+    const pv = await tmdbFetch("/" + type + "/" + id + "/watch/providers");
+    const jp = (pv.results && pv.results.JP) || {};
+    const ok = ["flatrate", "free", "ads", "rent", "buy"].some(k => (jp[k] || []).length > 0);
+    availabilityCache.set(key, ok);
+    return ok;
+  } catch (e) {
+    return true; // 取得失敗時は隠さない（誤判定で良作を消さない）
+  }
+}
+
+// checkAvail=true のとき、日本で視聴/購入できない作品をレールから除外する
+async function loadRail(containerId, path, params, defaultType, ranked, checkAvail) {
   const box = document.getElementById(containerId);
   if (!box) return;
   try {
     const data = await tmdbFetch(path, Object.assign({ language: LANG, region: REGION }, params));
-    const items = (data.results || [])
+    let items = (data.results || [])
       .filter(r => r.media_type !== "person")
       .map(r => makeItem(r, defaultType))
       .filter(it => it.id && it.poster); // ポスター有りのみ＝見た目を統一
+
+    if (checkAvail && items.length) {
+      const flags = await Promise.all(items.map(it => isWatchableJP(it.type, it.id)));
+      items = items.filter((it, i) => flags[i]);
+    }
 
     if (items.length === 0) {
       box.innerHTML = statusHTML("情報を取得できませんでした。", false);
