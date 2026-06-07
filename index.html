@@ -757,11 +757,13 @@ async function renderHome() {
 
   // 各行は独立に読み込み（1つ失敗しても他は表示）
   // 🔥 今週の話題の映画＝直近1週間で視聴・検索トラフィックが多い作品（TMDB trending）
-  // trendingはサーバー側で配信絞り込み不可のため、配信状況を確認して日本で観られない作品を除外
-  loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true, true);
+  // trendingはサーバー側で配信絞り込み不可のため、各作品の最新providersを確認し
+  // 「見放題が1つも無い作品」を除外する
+  loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true, "flatrate");
   // 📺 今週の話題のドラマ
-  loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true, true);
+  loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true, "flatrate");
   // 📈 いま日本で人気の配信作品＝日本で見放題配信中 × 人気順（popularity＝TMDBのトラフィック指標）
+  // クエリ時点でflatrate絞り込み＋表示直前にprovidersで見放題を実確認（詳細画面と整合）
   loadRail("home-popular", "/discover/movie",
     {
       watch_region: REGION,
@@ -770,8 +772,9 @@ async function renderHome() {
       "vote_count.gte": "50",
       include_adult: "false"
     },
-    "movie", true);
+    "movie", true, "flatrate");
   // 🆕 最近配信が始まった映画＝直近1年公開 × 日本で見放題配信中 × 人気順
+  // クエリ時点でflatrate絞り込み＋表示直前にprovidersで見放題を実確認（詳細画面と整合）
   loadRail("home-new", "/discover/movie",
     {
       with_watch_monetization_types: "flatrate",
@@ -783,7 +786,7 @@ async function renderHome() {
       "vote_count.gte": "20",
       include_adult: "false"
     },
-    "movie", false);
+    "movie", false, "flatrate");
   // ⭐ 日本の名作・高評価（邦画）＝日本で視聴/購入できる作品のみ
   loadRail("home-toprated", "/discover/movie",
     {
@@ -803,25 +806,56 @@ function rowSkeleton(id, title) {
     + '<div id="' + id + '"><div class="status"><div class="spinner sm"></div></div></div></section>';
 }
 
-// 日本で「見られる/買える」か（見放題/無料/広告つき無料/レンタル/購入のいずれか）。
-// providers応答をセッション内キャッシュして無駄打ちを防ぐ。
-const availabilityCache = new Map(); // "type:id" -> bool
-async function isWatchableJP(type, id) {
-  const key = type + ":" + id;
-  if (availabilityCache.has(key)) return availabilityCache.get(key);
-  try {
-    const pv = await tmdbFetch("/" + type + "/" + id + "/watch/providers");
-    const jp = (pv.results && pv.results.JP) || {};
-    const ok = ["flatrate", "free", "ads", "rent", "buy"].some(k => (jp[k] || []).length > 0);
-    availabilityCache.set(key, ok);
-    return ok;
-  } catch (e) {
-    return true; // 取得失敗時は隠さない（誤判定で良作を消さない）
-  }
+// 日本の配信状況(providers)を取得。応答はセッション内キャッシュして無駄打ちを防ぐ。
+// 配信状況はJustWatch由来で日次更新されるため、表示直前にこの最新値で判定する。
+const providersCache = new Map(); // "type:id" -> jp providers object | null(取得失敗)
+
+// providers確認はレールをまたいで多数発火するため、同時実行数を制限して
+// レート制限による「誤った除外」を防ぐ（正確性のため）。
+let _provInFlight = 0;
+const _provQueue = [];
+function _provAcquire() {
+  return new Promise(res => {
+    if (_provInFlight < 6) { _provInFlight++; res(); }
+    else _provQueue.push(res);
+  });
+}
+function _provRelease() {
+  _provInFlight--;
+  if (_provQueue.length) { _provInFlight++; _provQueue.shift()(); }
 }
 
-// checkAvail=true のとき、日本で視聴/購入できない作品をレールから除外する
-async function loadRail(containerId, path, params, defaultType, ranked, checkAvail) {
+async function getJPProviders(type, id) {
+  const key = type + ":" + id;
+  if (providersCache.has(key)) return providersCache.get(key);
+  await _provAcquire();
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const pv = await tmdbFetch("/" + type + "/" + id + "/watch/providers");
+        const jp = (pv.results && pv.results.JP) || {};
+        providersCache.set(key, jp);
+        return jp;
+      } catch (e) {
+        if (attempt === 0) { await new Promise(r => setTimeout(r, 500)); continue; }
+        return null; // リトライしても失敗
+      }
+    }
+  } finally {
+    _provRelease();
+  }
+}
+function jpHasFlatrate(jp) { return !!(jp && (jp.flatrate || []).length); }
+function jpHasAny(jp) {
+  return !!(jp && ["flatrate", "free", "ads", "rent", "buy"].some(k => (jp[k] || []).length));
+}
+
+// availMode:
+//   "flatrate" … 見放題サービスが1つ以上ある作品だけ表示（providersで実確認）
+//   "any"      … 見放題/無料/レンタル/購入のいずれかがある作品だけ表示
+//   それ以外    … 絞り込みなし
+// 正確性のため、取得失敗した作品は安全側で除外（不確かな表示を避ける）。
+async function loadRail(containerId, path, params, defaultType, ranked, availMode) {
   const box = document.getElementById(containerId);
   if (!box) return;
   try {
@@ -831,9 +865,13 @@ async function loadRail(containerId, path, params, defaultType, ranked, checkAva
       .map(r => makeItem(r, defaultType))
       .filter(it => it.id && it.poster); // ポスター有りのみ＝見た目を統一
 
-    if (checkAvail && items.length) {
-      const flags = await Promise.all(items.map(it => isWatchableJP(it.type, it.id)));
-      items = items.filter((it, i) => flags[i]);
+    if (availMode && items.length) {
+      const jps = await Promise.all(items.map(it => getJPProviders(it.type, it.id)));
+      items = items.filter((it, i) => {
+        const jp = jps[i];
+        if (jp === null) return false; // 取得失敗は除外（正確性優先）
+        return availMode === "flatrate" ? jpHasFlatrate(jp) : jpHasAny(jp);
+      });
     }
 
     if (items.length === 0) {
@@ -919,7 +957,8 @@ async function loadGenre(genreId) {
       sort_by: "popularity.desc",
       include_adult: "false",
       watch_region: REGION,
-      with_watch_monetization_types: "flatrate", // 日本で見放題配信中
+      // 見放題/無料/レンタル/購入のいずれかで視聴可能な作品（話題・人気順）
+      with_watch_monetization_types: "flatrate|free|ads|rent|buy",
       with_origin_country: "JP|US",              // 邦画＋ハリウッド（外国語ローカル作品を排除）
       "vote_count.gte": "80",
       page: "1"
@@ -927,7 +966,7 @@ async function loadGenre(genreId) {
     // マイサービス設定時はそのサービスで見られる作品に絞る
     if (myServices.size > 0) params.with_watch_providers = myServicesParam();
     const data = await tmdbFetch("/discover/movie", params);
-    const items = (data.results || []).map(r => makeItem(r, "movie")).filter(it => it.id);
+    const items = (data.results || []).map(r => makeItem(r, "movie")).filter(it => it.id && it.poster);
 
     if (items.length === 0) {
       catGrid.innerHTML = statusHTML("このカテゴリの作品が見つかりませんでした。", true);
