@@ -44,23 +44,31 @@ def tmdb(path, **params):
             time.sleep(1)
     return {}
 
+def _norm(s):
+    return "".join((s or "").lower().split())
+
 def best_match(title):
-    """完全一致を優先 → なければ票数最大。ポスター有りを必須。"""
-    d = tmdb("/search/movie", language="ja-JP", query=title, include_adult="false")
+    """Netflixのshow_titleは英語なので英語で検索して完全一致を正しく取る。
+    完全一致が複数なら新しい方（Netflixのトレンドは新しめの作品）。
+    完全一致が無ければ票数最大。表示は日本語タイトル。ポスター有り必須。"""
+    d = tmdb("/search/movie", language="en-US", query=title, include_adult="false")
     res = [r for r in d.get("results", []) if r.get("poster_path")]
     if not res:
         return None
-    tl = title.strip().lower()
-    exact = [r for r in res if (r.get("title", "").strip().lower() == tl
-                                or r.get("original_title", "").strip().lower() == tl)]
-    pool = exact if exact else res
-    pool.sort(key=lambda r: (r.get("vote_count", 0), r.get("popularity", 0)), reverse=True)
-    r = pool[0]
-    date = r.get("release_date") or ""
+    tl = _norm(title)
+    exact = [r for r in res if _norm(r.get("title")) == tl or _norm(r.get("original_title")) == tl]
+    if exact:
+        exact.sort(key=lambda r: (r.get("release_date") or ""), reverse=True)
+        r = exact[0]
+    else:
+        res.sort(key=lambda r: (r.get("vote_count", 0), r.get("popularity", 0)), reverse=True)
+        r = res[0]
+    ja = tmdb("/movie/%s" % r["id"], language="ja-JP")  # 表示用の日本語タイトル/ポスター
+    date = ja.get("release_date") or r.get("release_date") or ""
     return {
         "rank": None, "type": "movie", "id": r["id"],
-        "title": r.get("title") or r.get("original_title") or "(タイトル不明)",
-        "poster": r.get("poster_path"),
+        "title": ja.get("title") or r.get("title") or r.get("original_title") or "(タイトル不明)",
+        "poster": ja.get("poster_path") or r.get("poster_path"),
         "year": date[:4] if date else "—",
     }
 
