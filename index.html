@@ -1315,10 +1315,15 @@ function mobileOS() {
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) return "ios";
   return "other";
 }
-// 主要サービスのAndroidパッケージ（不明なサービスはWebのまま＝App Linksに任せる）
+// 主要サービスのAndroid起動設定。
+//   値="パッケージ名" … そのアプリを指定して起動（Netflix等）
+//   値=""            … パッケージを固定せずApp Links解決に任せる（Prime Video）。
+//                       primevideo.comはPrime Video系アプリのみが担当（mShop=Amazon
+//                       ショッピングは非担当）のため、端末にあるPrime Video版が選ばれる。
+//   未登録            … 変換せずWeb（App Links/Universal Linksに任せる）
 const ANDROID_PKG = {
   8: "com.netflix.mediaclient", 1796: "com.netflix.mediaclient",   // Netflix
-  9: "com.amazon.avod.thirdpartyclient", 2100: "com.amazon.avod.thirdpartyclient", // Prime Video
+  9: "", 2100: "",                                                 // Prime Video（App Links解決に委譲）
   10: "com.amazon.mShop.android.shopping",                          // Amazon（レンタル/購入）
   337: "com.disney.disneyplus",                                     // Disney+
   15: "jp.happyon.android",                                         // Hulu 日本
@@ -1326,12 +1331,15 @@ const ANDROID_PKG = {
 };
 // 直リンク(direct)のときだけ、Androidはintent化してアプリ起動を狙う
 function appAwareHref(url, providerId) {
-  if (providerId && mobileOS() === "android" && ANDROID_PKG[providerId] && /^https:\/\//i.test(url)) {
+  if (providerId != null && mobileOS() === "android"
+      && (providerId in ANDROID_PKG) && /^https:\/\//i.test(url)) {
+    const pkg = ANDROID_PKG[providerId];
     try {
       const u = new URL(url);
+      const pkgPart = pkg ? "package=" + pkg + ";" : ""; // 空ならApp Links解決に任せる
       return "intent://" + u.host + u.pathname + u.search + u.hash
-        + "#Intent;scheme=https;package=" + ANDROID_PKG[providerId]
-        + ";S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
+        + "#Intent;scheme=https;" + pkgPart
+        + "S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
     } catch (e) { return url; }
   }
   return url;
