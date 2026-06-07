@@ -1384,7 +1384,11 @@ function renderDetail() {
         tag = "a";
         // 直リンクのときだけアプリ起動を狙う（fallback=JustWatchページはWebのまま）
         const finalUrl = appAwareHref(dest.url, dest.direct ? p.provider_id : null);
-        href = ' href="' + escapeHTML(finalUrl) + '" target="_blank" rel="noopener"';
+        // モバイルはトップレベル遷移にして Universal Links/App Links を確実に発火させる。
+        // iOSは target="_blank"（新規タブ）だと universal link が発火せず、Safariや
+        // 別アプリにURLが渡ってしまうため、アプリ起動には同一タブ遷移が必要。
+        const tgt = mobileOS() === "other" ? ' target="_blank"' : '';
+        href = ' href="' + escapeHTML(finalUrl) + '"' + tgt + ' rel="noopener"';
         arrow = dest.direct
           ? '<span class="arrow">' + escapeHTML(p.provider_name) + 'で見る ›</span>'
           : '<span class="arrow">配信ページへ ›</span>';
