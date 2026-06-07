@@ -579,6 +579,12 @@
     text-decoration: none;
   }
   .extra-link:active { transform: scale(0.96); }
+  .extra-link.affiliate {
+    background: linear-gradient(160deg, rgba(124,92,255,0.18), rgba(255,90,170,0.14));
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .extra-link.affiliate:hover { filter: brightness(1.08); }
 
   /* 作品メタ情報（評価・尺・ジャンル） */
   .modal-meta {
@@ -1547,7 +1553,8 @@ const AFFILIATE_LINKS = {
 };
 // EXTRA_SERVICES（TMDB配信データに載らない）向けのアフィリ設定（名前キー）
 const EXTRA_AFFILIATE = {
-  "ABEMA":  { url: "https://h.accesstrade.net/sp/cc?rk={AT_RK_ABEMA}", label: "ABEMAプレミアムを無料で試す" },
+  // ABEMA：A8.net 提携承認済み（2026-06-08）。imp=インプレッション計測gif
+  "ABEMA":  { url: "https://px.a8.net/svt/ejp?a8mat=4B5R01+EAEK7U+4EKC+5YRHE", imp: "https://www17.a8.net/0.gif?a8mat=4B5R01+EAEK7U+4EKC+5YRHE", label: "ABEMAプレミアムを無料で試す" },
   "DMM TV": { url: "https://px.a8.net/svt/ejp?a8mat={A8MAT_DMMTV}", label: "DMM TVを無料で試す" }
 };
 // 提携IDが実値に差し替わっていれば true（{XXX} が残っていれば未設定＝無効）
@@ -1680,10 +1687,18 @@ function renderDetail() {
     '<p class="extra-label">📍 その他のサービスで探す</p>'
     + '<p class="extra-note">TMDBに配信情報が無いサービスです。作品名で検索します。</p>'
     + '<div class="extra-links">'
-    + EXTRA_SERVICES.map(s =>
-        '<a class="extra-link" href="' + escapeHTML(s.url(encTitle))
-        + '" target="_blank" rel="noopener">' + escapeHTML(s.name) + 'で探す ›</a>'
-      ).join("")
+    + EXTRA_SERVICES.map(s => {
+        const aff = affForExtra(s.name);
+        if (aff) {
+          // 提携承認済み＝新規登録アフィリへ誘導（PR表記必須）
+          return '<a class="extra-link affiliate" href="' + escapeHTML(aff.url)
+            + '" target="_blank" rel="noopener sponsored">' + escapeHTML(s.name) + '：'
+            + escapeHTML(aff.label) + ' ›<span class="pr-badge">PR</span></a>'
+            + (aff.imp ? '<img src="' + escapeHTML(aff.imp) + '" width="1" height="1" alt="" style="position:absolute;left:-9999px">' : '');
+        }
+        return '<a class="extra-link" href="' + escapeHTML(s.url(encTitle))
+          + '" target="_blank" rel="noopener">' + escapeHTML(s.name) + 'で探す ›</a>';
+      }).join("")
     + '</div>';
 
   // 評価・上映時間・ジャンル
