@@ -1264,12 +1264,23 @@ const PROVIDER_SEARCH = {
   2683: t => "https://fod.fujitv.co.jp/search/?searchWord=" + t      // FOD
 };
 
-// 見た目だけの調整（リンク/名称は変更しない）。
-// Prime Videoのロゴを、見放題＝青背景・レンタル/購入＝白背景に入れ替える。
+// Amazon（ショッピング）ロゴ。レンタル/購入はAmazonで買う動線なので、
+// Prime Videoロゴではなく分かりやすいAmazonロゴ（自作SVG）を表示する。
+const AMAZON_LOGO = "data:image/svg+xml," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'>"
+  + "<rect width='120' height='120' rx='26' fill='#ffffff'/>"
+  + "<text x='60' y='60' font-family='Arial,Helvetica,sans-serif' font-weight='700' font-size='29' fill='#131921' text-anchor='middle' letter-spacing='-1.2'>amazon</text>"
+  + "<path d='M30 70 Q60 90 90 71' stroke='#ff9900' stroke-width='7' fill='none' stroke-linecap='round'/>"
+  + "<path d='M90 71 l-3 -10 11 4 z' fill='#ff9900'/></svg>"
+);
+
+// 見た目だけの調整（リンク/名称は変更しない）。値は最終的な画像src。
+//   見放題(Prime Video) … 青背景のPrime Videoロゴ
+//   レンタル/購入(Amazon Video) … Amazonショッピングのロゴ
 const PROVIDER_LOGO_OVERRIDE = {
-  9:    "/qR6FKvnPBx2O37FDg8PNM7efwF3.jpg", // 見放題 → 青背景ロゴ（元 Amazon Video）
-  2100: "/qR6FKvnPBx2O37FDg8PNM7efwF3.jpg", // 見放題(広告つき) → 青背景ロゴ
-  10:   "/pvske1MyAoymrs5bguRfVqYiM9a.jpg"  // レンタル/購入 → 白背景ロゴ（元 Prime Video）
+  9:    IMG_BASE + "w92/qR6FKvnPBx2O37FDg8PNM7efwF3.jpg", // 見放題 → 青背景Prime Video
+  2100: IMG_BASE + "w92/qR6FKvnPBx2O37FDg8PNM7efwF3.jpg", // 見放題(広告つき) → 青背景
+  10:   AMAZON_LOGO                                        // レンタル/購入 → Amazonロゴ
 };
 
 // TMDB(JustWatch)の配信データに載らないが日本で人気のサービス。
@@ -1390,8 +1401,8 @@ function renderDetail() {
   let providersHTML;
   if (list.length > 0) {
     const cells = list.map(p => {
-      const logoPath = PROVIDER_LOGO_OVERRIDE[p.provider_id] || p.logo_path; // 見た目だけ差し替え
-      const logo = posterURL(logoPath, "w92");
+      // 見た目だけ差し替え（override値は最終src。無ければTMDBロゴ）
+      const logo = PROVIDER_LOGO_OVERRIDE[p.provider_id] || posterURL(p.logo_path, "w92");
       const logoEl = logo ? '<img src="' + logo + '" alt="">' : '';
 
       const dest = resolveProviderLink(p.provider_id, title, link);
