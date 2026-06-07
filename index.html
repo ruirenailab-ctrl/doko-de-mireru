@@ -1244,8 +1244,15 @@ const TAB_DEFS = [
 const PROVIDER_SEARCH = {
   8:    t => "https://www.netflix.com/search?q=" + t,                 // Netflix
   1796: t => "https://www.netflix.com/search?q=" + t,                 // Netflix (広告つき)
-  9:    t => "https://www.primevideo.com/search/?phrase=" + t,         // Amazon Prime Video（見放題＝Prime会員特典）→Prime Video公式へ
-  2100: t => "https://www.primevideo.com/search/?phrase=" + t,         // Amazon Prime Video 広告つき（見放題）→Prime Video公式へ
+  // Amazon Prime Video（見放題）。モバイルは"製品版"Prime Videoアプリが担当する
+  // watch.amazon.co.jp（iOS AASA / Android assetlinks 両方で確認・ショッピングアプリ非含有）へ
+  // 飛ばしてアプリ起動。デスクトップは primevideo.com のWebへ。
+  9:    t => mobileOS() === "other"
+          ? "https://www.primevideo.com/search/?phrase=" + t
+          : "https://watch.amazon.co.jp/search?phrase=" + t,
+  2100: t => mobileOS() === "other"
+          ? "https://www.primevideo.com/search/?phrase=" + t
+          : "https://watch.amazon.co.jp/search?phrase=" + t,
   10:   t => "https://www.amazon.co.jp/s?k=" + t + "&i=instant-video", // Amazon Video（レンタル/購入）→Amazon店舗検索へ
   337:  t => "https://www.disneyplus.com/ja-jp/search?q=" + t,         // Disney+
   84:   t => "https://video.unext.jp/freeword?query=" + t,            // U-NEXT
