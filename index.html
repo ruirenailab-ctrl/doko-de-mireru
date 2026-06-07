@@ -1303,6 +1303,40 @@ function resolveProviderLink(providerId, rawTitle, fallback) {
   return null;
 }
 
+// ===== アプリ起動（インストール済みならアプリへ・無ければWebへ） =====
+// iOS: httpsのままでUniversal Links対応サービス（Prime Video等）が自動でアプリを開く。
+//      （カスタムスキームは未インストール時にエラー画面が出るため使わない）
+// Android: intent:// にパッケージ指定＋browser_fallback_url を付け、
+//      アプリがあれば起動・無ければ同じWeb URLへ自動フォールバックする。
+function mobileOS() {
+  const ua = navigator.userAgent || "";
+  if (/android/i.test(ua)) return "android";
+  if (/iphone|ipad|ipod/i.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) return "ios";
+  return "other";
+}
+// 主要サービスのAndroidパッケージ（不明なサービスはWebのまま＝App Linksに任せる）
+const ANDROID_PKG = {
+  8: "com.netflix.mediaclient", 1796: "com.netflix.mediaclient",   // Netflix
+  9: "com.amazon.avod.thirdpartyclient", 2100: "com.amazon.avod.thirdpartyclient", // Prime Video
+  10: "com.amazon.mShop.android.shopping",                          // Amazon（レンタル/購入）
+  337: "com.disney.disneyplus",                                     // Disney+
+  15: "jp.happyon.android",                                         // Hulu 日本
+  2683: "jp.co.fujitv.fodapp"                                       // FOD（ベストエフォート）
+};
+// 直リンク(direct)のときだけ、Androidはintent化してアプリ起動を狙う
+function appAwareHref(url, providerId) {
+  if (providerId && mobileOS() === "android" && ANDROID_PKG[providerId] && /^https:\/\//i.test(url)) {
+    try {
+      const u = new URL(url);
+      return "intent://" + u.host + u.pathname + u.search + u.hash
+        + "#Intent;scheme=https;package=" + ANDROID_PKG[providerId]
+        + ";S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
+    } catch (e) { return url; }
+  }
+  return url;
+}
+
 function renderDetail() {
   const { type, detail, jp, link, activeTab } = detailState;
   const favOn = isFav(type, detail.id);
@@ -1340,7 +1374,9 @@ function renderDetail() {
       let tag = "div", href = "", arrow = "";
       if (dest) {
         tag = "a";
-        href = ' href="' + escapeHTML(dest.url) + '" target="_blank" rel="noopener"';
+        // 直リンクのときだけアプリ起動を狙う（fallback=JustWatchページはWebのまま）
+        const finalUrl = appAwareHref(dest.url, dest.direct ? p.provider_id : null);
+        href = ' href="' + escapeHTML(finalUrl) + '" target="_blank" rel="noopener"';
         arrow = dest.direct
           ? '<span class="arrow">' + escapeHTML(p.provider_name) + 'で見る ›</span>'
           : '<span class="arrow">配信ページへ ›</span>';
