@@ -1,0 +1,16 @@
+{
+  "name": "dokomiru（どこみる）",
+  "short_name": "dokomiru",
+  "description": "観たい映画・ドラマが、日本のどの配信サービスで観られるか一瞬でわかる。ログイン不要・お気に入り保存。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

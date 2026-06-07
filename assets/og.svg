@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="0.55" stop-color="#b14cff"/>
+      <stop offset="1" stop-color="#ff5c8a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.7">
+      <stop offset="0" stop-color="#2a1a4a"/>
+      <stop offset="1" stop-color="#0b0d12"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="1200" fill="url(#glow)"/>
+  <g transform="translate(444,250) scale(0.61)">
+    <rect width="512" height="512" rx="116" fill="url(#g)"/>
+    <path d="M256 78 C181 78 121 138 121 214 C121 300 205 360 256 442 C307 360 391 300 391 214 C391 138 331 78 256 78 Z" fill="#ffffff"/>
+    <path d="M232 166 L232 262 L314 214 Z" fill="url(#g)"/>
+  </g>
+  <text x="600" y="760" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="150" font-weight="bold" fill="#ffffff" letter-spacing="-3">dokomiru</text>
+  <text x="600" y="850" text-anchor="middle" font-family="Hiragino Sans, Hiragino Kaku Gothic ProN, sans-serif" font-size="52" fill="#c9c2e6">その作品、どこで観れる？</text>
+  <text x="600" y="930" text-anchor="middle" font-family="Hiragino Sans, sans-serif" font-size="36" fill="#8b84a8">Netflix・Prime Video・U-NEXT… 配信先がすぐわかる</text>
+</svg>

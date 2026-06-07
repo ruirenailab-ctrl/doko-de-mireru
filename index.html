@@ -2,25 +2,54 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>配信サービス検索 | どこで見られる？</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>dokomiru（どこみる）| その作品、どこで観れる？</title>
+<meta name="description" content="観たい映画・ドラマが、Netflix・Amazon Prime Video・U-NEXT・Disney+ など日本のどの配信サービスで観られるか一瞬でわかる。ログイン不要・お気に入り保存。">
+<meta name="theme-color" content="#0b0d12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c5cff'/%3E%3Cstop offset='.55' stop-color='%23b14cff'/%3E%3Cstop offset='1' stop-color='%23ff5c8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' rx='116' fill='url(%23g)'/%3E%3Cpath d='M256 78C181 78 121 138 121 214c0 86 84 146 135 228 51-82 135-142 135-228 0-76-60-136-135-136z' fill='%23fff'/%3E%3Cpath d='M232 166v96l82-48z' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="dokomiru">
+<!-- OGP / Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="dokomiru">
+<meta property="og:title" content="dokomiru（どこみる）| その作品、どこで観れる？">
+<meta property="og:description" content="観たい映画・ドラマが日本のどの配信サービスで観られるか一瞬でわかる。ログイン不要・お気に入り保存。">
+<meta property="og:url" content="https://ruirenailab-ctrl.github.io/dokomiru/">
+<meta property="og:image" content="https://ruirenailab-ctrl.github.io/dokomiru/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="dokomiru（どこみる）| その作品、どこで観れる？">
+<meta name="twitter:description" content="観たい映画・ドラマが日本のどの配信サービスで観られるか一瞬でわかる。">
+<meta name="twitter:image" content="https://ruirenailab-ctrl.github.io/dokomiru/assets/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1115;
-    --card: #1a1d24;
-    --card2: #22262f;
-    --text: #f2f4f8;
-    --sub: #9aa3b2;
-    --accent: #4f8cff;
-    --accent2: #3b6fd6;
-    --danger: #ff6b6b;
-    --radius: 14px;
+    --bg: #0b0d12;
+    --bg2: #0f1218;
+    --card: #161a22;
+    --card2: #1f242e;
+    --text: #f4f5fa;
+    --sub: #98a0b3;
+    --accent: #8b6cff;
+    --accent2: #6f4ce0;
+    --grad: linear-gradient(135deg, #7c5cff 0%, #b14cff 55%, #ff5c8a 100%);
+    --danger: #ff6b8a;
+    --line: #232834;
+    --radius: 16px;
+    --safe-top: env(safe-area-inset-top, 0px);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
-    background: var(--bg);
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(124,92,255,0.12), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     line-height: 1.6;
   }
@@ -28,18 +57,36 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    background: rgba(15,17,21,0.92);
-    backdrop-filter: blur(8px);
-    padding: 16px;
-    border-bottom: 1px solid #262a33;
+    background: rgba(11,13,18,0.72);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    padding: calc(12px + var(--safe-top)) 16px 14px;
+    border-bottom: 1px solid var(--line);
   }
-  h1 {
-    font-size: 1.15rem;
-    margin: 0 0 12px;
-    text-align: center;
-    letter-spacing: 0.02em;
+  /* ブランドロゴ */
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    margin: 0 0 13px;
     cursor: pointer;
     user-select: none;
+  }
+  .brand .logo-mark {
+    width: 26px; height: 26px; flex: none;
+    filter: drop-shadow(0 2px 6px rgba(124,92,255,0.5));
+  }
+  .brand .logo-text {
+    font-family: "Outfit", -apple-system, sans-serif;
+    font-weight: 800;
+    font-size: 1.45rem;
+    letter-spacing: -0.02em;
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
   }
   .search-row {
     display: flex;
@@ -47,31 +94,43 @@
     max-width: 560px;
     margin: 0 auto;
   }
-  #q {
+  .search-field {
+    position: relative;
     flex: 1;
     min-width: 0;
-    padding: 12px 14px;
+  }
+  .search-field .si {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--sub); pointer-events: none; font-size: 15px;
+  }
+  #q {
+    width: 100%;
+    min-width: 0;
+    padding: 13px 14px 13px 38px;
     font-size: 16px;
     border-radius: var(--radius);
-    border: 1px solid #333944;
+    border: 1px solid var(--line);
     background: var(--card);
     color: var(--text);
     outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  #q:focus { border-color: var(--accent); }
+  #q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
   #searchBtn {
-    padding: 12px 18px;
+    padding: 13px 18px;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     border: none;
     border-radius: var(--radius);
-    background: var(--accent);
+    background: var(--grad);
     color: #fff;
     cursor: pointer;
     white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(124,92,255,0.35);
+    transition: transform 0.1s, filter 0.15s;
   }
-  #searchBtn:active { background: var(--accent2); }
-  #searchBtn:disabled { opacity: 0.5; cursor: default; }
+  #searchBtn:active { transform: scale(0.97); filter: brightness(0.95); }
+  #searchBtn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
 
   main {
     max-width: 560px;
@@ -111,9 +170,10 @@
     border-radius: var(--radius);
     overflow: hidden;
     cursor: pointer;
-    border: 1px solid #262a33;
-    transition: transform 0.1s, border-color 0.15s;
+    border: 1px solid var(--line);
+    transition: transform 0.12s, border-color 0.15s, box-shadow 0.15s;
   }
+  .card:hover { border-color: rgba(124,92,255,0.45); box-shadow: 0 8px 22px rgba(0,0,0,0.35); }
   .card:active { transform: scale(0.98); }
   .poster {
     width: 100%;
@@ -235,7 +295,7 @@
     cursor: pointer;
     white-space: nowrap;
   }
-  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip.active { background: var(--grad); color: #fff; border-color: transparent; box-shadow: 0 3px 12px rgba(124,92,255,0.3); }
 
   /* 無限スクロール用センチネル */
   #sentinel { height: 1px; }
@@ -339,7 +399,7 @@
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }
-  .tab.active { background: var(--accent); color: #fff; }
+  .tab.active { background: var(--grad); color: #fff; box-shadow: 0 3px 12px rgba(124,92,255,0.28); }
   .tab .count { font-size: 0.66rem; opacity: 0.85; margin-left: 3px; }
 
   .providers {
@@ -518,9 +578,22 @@
 <header>
   <button id="favBtn" class="fav-btn" title="お気に入り">♡</button>
   <button id="settingsBtn" class="settings-btn" title="マイサービス設定">⚙</button>
-  <h1 id="homeLink">📺 どこで見られる？</h1>
+  <div class="brand" id="homeLink" title="ホーム">
+    <svg class="logo-mark" viewBox="0 0 512 512" aria-hidden="true">
+      <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7c5cff"/><stop offset=".55" stop-color="#b14cff"/><stop offset="1" stop-color="#ff5c8a"/>
+      </linearGradient></defs>
+      <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+      <path d="M256 78C181 78 121 138 121 214c0 86 84 146 135 228 51-82 135-142 135-228 0-76-60-136-135-136z" fill="#fff"/>
+      <path d="M232 166v96l82-48z" fill="url(#bg)"/>
+    </svg>
+    <span class="logo-text">dokomiru</span>
+  </div>
   <div class="search-row">
-    <input id="q" type="search" placeholder="作品名を入力（例：ゴジラ）" enterkeyhint="search" autocomplete="off">
+    <div class="search-field">
+      <span class="si">🔍</span>
+      <input id="q" type="search" placeholder="作品名で検索（例：ゴジラ）" enterkeyhint="search" autocomplete="off">
+    </div>
     <button id="searchBtn">検索</button>
   </div>
 </header>
@@ -638,16 +711,20 @@ async function renderHome() {
   const filterTag = hasFilter ? '<span class="filter-tag">マイサービス</span>' : "";
 
   homeEl.innerHTML =
-    (favorites.size > 0 ? '<section class="row"><h2 class="row-title">♥ お気に入り</h2><div id="home-fav"></div></section>' : "")
+    (recentlyViewed.length > 0 ? '<section class="row"><h2 class="row-title">🕘 最近チェックした作品</h2><div id="home-recent"></div></section>' : "")
+    + (favorites.size > 0 ? '<section class="row"><h2 class="row-title">♥ お気に入り</h2><div id="home-fav"></div></section>' : "")
     + (hasFilter ? rowSkeleton("home-mine", "📌 あなたのサービスで見られる人気作") : "")
-    + rowSkeleton("home-trending-movie", "🔥 話題の映画")
-    + rowSkeleton("home-trending-tv", "📺 話題のドラマ")
-    + rowSkeleton("home-new", "🆕 最近サブスクに追加された映画")
-    + rowSkeleton("home-toprated", "⭐ 日本の名作・高評価")
+    + rowSkeleton("home-trending-movie", "🔥 今週の話題の映画")
+    + rowSkeleton("home-trending-tv", "📺 今週の話題のドラマ")
+    + rowSkeleton("home-popular", "📈 いま日本で人気の配信作品")
+    + rowSkeleton("home-new", "🆕 最近配信が始まった映画")
+    + rowSkeleton("home-toprated", "⭐ 名作・高評価")
     + '<section class="row"><h2 class="row-title">🎬 カテゴリ別' + filterTag + '</h2>'
     + '<div class="chips" id="cat-chips"></div>'
     + '<div class="grid" id="cat-grid"></div></section>';
 
+  // 最近チェックした作品（閲覧履歴＝パーソナルなトラフィック・フェッチ不要）
+  if (recentlyViewed.length > 0) renderRecentRail();
   // お気に入り（保存済みデータからその場で描画・APIフェッチ不要）
   if (favorites.size > 0) renderFavRail();
 
@@ -673,11 +750,21 @@ async function renderHome() {
     + String(d.getDate()).padStart(2, "0");
 
   // 各行は独立に読み込み（1つ失敗しても他は表示）
-  // 🔥 話題の映画＝直近で検索・閲覧が多い話題作（trending）
+  // 🔥 今週の話題の映画＝直近1週間で視聴・検索トラフィックが多い作品（TMDB trending）
   loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true);
-  // 📺 話題のドラマ
+  // 📺 今週の話題のドラマ
   loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true);
-  // 🆕 最近サブスクに追加された映画＝直近1年公開 × 日本で見放題配信中 × 人気順
+  // 📈 いま日本で人気の配信作品＝日本で見放題配信中 × 人気順（popularity＝TMDBのトラフィック指標）
+  loadRail("home-popular", "/discover/movie",
+    {
+      watch_region: REGION,
+      with_watch_monetization_types: "flatrate",
+      sort_by: "popularity.desc",
+      "vote_count.gte": "50",
+      include_adult: "false"
+    },
+    "movie", true);
+  // 🆕 最近配信が始まった映画＝直近1年公開 × 日本で見放題配信中 × 人気順
   loadRail("home-new", "/discover/movie",
     {
       with_watch_monetization_types: "flatrate",
@@ -710,7 +797,7 @@ async function loadRail(containerId, path, params, defaultType, ranked) {
     const items = (data.results || [])
       .filter(r => r.media_type !== "person")
       .map(r => makeItem(r, defaultType))
-      .filter(it => it.id);
+      .filter(it => it.id && it.poster); // ポスター有りのみ＝見た目を統一
 
     if (items.length === 0) {
       box.innerHTML = statusHTML("情報を取得できませんでした。", false);
@@ -969,6 +1056,7 @@ async function openDetail(type, id) {
       if (jp[k]) jp[k] = dedupeProviders(jp[k]);
     });
     detailState = { type, detail, jp, link: jp.link || null, activeTab: pickDefaultTab(jp) };
+    recordRecent(favItemFromDetail(type, detail)); // 閲覧履歴に記録（トラフィック）
     renderDetail();
   } catch (e) {
     modal.innerHTML =
@@ -1183,7 +1271,7 @@ function renderDetail() {
     + '</div>'
     + trailerHTML + sectionBody + extraHTML + castHTML + recsHTML
     + '</div>'
-    + '<p class="tmdb-note">ロゴをタップすると各サービスで作品名を検索して開きます<br>配信情報の提供：JustWatch / The Movie Database (TMDB)</p>';
+    + '<p class="tmdb-note">ロゴをタップすると各サービスで作品名を検索して開きます<br>配信状況は変わることがあります。最終確認は各公式サイトでお願いします。<br>配信情報の提供：JustWatch / The Movie Database (TMDB)</p>';
 
   modal.querySelectorAll(".tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1276,7 +1364,7 @@ async function shareDetail() {
   const { type, detail } = detailState;
   const title = detail.title || detail.name || "";
   const url = shareUrl(type, detail.id);
-  const text = "『" + title + "』はどこで見られる？";
+  const text = "『" + title + "』はどこで観れる？ #dokomiru で配信先をチェック";
   if (navigator.share) {
     try { await navigator.share({ title, text, url }); } catch (e) {}
   } else {
@@ -1487,6 +1575,36 @@ function renderFavRail() {
   const rail = document.createElement("div");
   rail.className = "rail";
   items.forEach(it => rail.appendChild(railCardEl(it, 0)));
+  box.innerHTML = "";
+  box.appendChild(rail);
+}
+
+// ====================================================================
+//  最近チェックした作品（閲覧履歴＝パーソナルなトラフィック / localStorage）
+// ====================================================================
+function loadRecentlyViewed() {
+  try {
+    const arr = JSON.parse(localStorage.getItem("recentlyViewed") || "[]");
+    return Array.isArray(arr) ? arr.filter(it => it && it.type && it.id) : [];
+  } catch (e) { return []; }
+}
+let recentlyViewed = loadRecentlyViewed();
+
+function recordRecent(item) {
+  if (!item || !item.id) return;
+  const k = item.type + ":" + item.id;
+  recentlyViewed = recentlyViewed.filter(it => (it.type + ":" + it.id) !== k);
+  recentlyViewed.unshift(item);     // 最新を先頭へ
+  if (recentlyViewed.length > 20) recentlyViewed = recentlyViewed.slice(0, 20);
+  try { localStorage.setItem("recentlyViewed", JSON.stringify(recentlyViewed)); } catch (e) {}
+}
+
+function renderRecentRail() {
+  const box = document.getElementById("home-recent");
+  if (!box) return;
+  const rail = document.createElement("div");
+  rail.className = "rail";
+  recentlyViewed.forEach(it => rail.appendChild(railCardEl(it, 0)));
   box.innerHTML = "";
   box.appendChild(rail);
 }
