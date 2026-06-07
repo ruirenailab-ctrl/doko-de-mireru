@@ -23,6 +23,26 @@
 <meta name="twitter:title" content="dokomiru（どこみる）| その作品、どこで観れる？">
 <meta name="twitter:description" content="観たい映画・ドラマが日本のどの配信サービスで観られるか一瞬でわかる。">
 <meta name="twitter:image" content="https://ruirenailab-ctrl.github.io/dokomiru/assets/og.png">
+<link rel="canonical" href="https://ruirenailab-ctrl.github.io/dokomiru/">
+<!-- Google Search Console 所有権確認：取得した確認コードを下行のcontentに貼る（未設定なら無害） -->
+<meta name="google-site-verification" content="">
+<!-- 構造化データ：検索ボックス付きで検索結果に出すための WebSite + SearchAction -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "dokomiru（どこみる）",
+  "alternateName": "どこみる",
+  "url": "https://ruirenailab-ctrl.github.io/dokomiru/",
+  "description": "観たい映画・ドラマが、Netflix・Amazon Prime Video・U-NEXT・Disney+ など日本のどの配信サービスで観られるか一瞬でわかる配信先検索サービス。",
+  "inLanguage": "ja",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": { "@type": "EntryPoint", "urlTemplate": "https://ruirenailab-ctrl.github.io/dokomiru/?q={search_term_string}" },
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
@@ -1894,7 +1914,10 @@ function openFromUrl() {
   try {
     const p = new URLSearchParams(location.search);
     const t = p.get("t"), id = p.get("id");
-    if ((t === "movie" || t === "tv") && id) goDetail(t, id);
+    if ((t === "movie" || t === "tv") && id) { goDetail(t, id); return; }
+    // 検索ディープリンク（?q=）＝構造化データの検索ボックス・共有URLから着地できる
+    const q = (p.get("q") || "").trim();
+    if (q) { qInput.value = q; replaceNav({ view: "search", q }); renderSearch(q); }
   } catch (e) {}
 }
 

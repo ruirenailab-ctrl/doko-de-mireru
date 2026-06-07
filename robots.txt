@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ruirenailab-ctrl.github.io/dokomiru/sitemap.xml
