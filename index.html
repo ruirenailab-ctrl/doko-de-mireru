@@ -1264,6 +1264,14 @@ const PROVIDER_SEARCH = {
   2683: t => "https://fod.fujitv.co.jp/search/?searchWord=" + t      // FOD
 };
 
+// 見た目だけの調整（リンク/名称は変更しない）。
+// Prime Videoのロゴを、見放題＝青背景・レンタル/購入＝白背景に入れ替える。
+const PROVIDER_LOGO_OVERRIDE = {
+  9:    "/qR6FKvnPBx2O37FDg8PNM7efwF3.jpg", // 見放題 → 青背景ロゴ（元 Amazon Video）
+  2100: "/qR6FKvnPBx2O37FDg8PNM7efwF3.jpg", // 見放題(広告つき) → 青背景ロゴ
+  10:   "/pvske1MyAoymrs5bguRfVqYiM9a.jpg"  // レンタル/購入 → 白背景ロゴ（元 Prime Video）
+};
+
 // TMDB(JustWatch)の配信データに載らないが日本で人気のサービス。
 // 配信中かは判定できないため「作品名で検索する」リンクとして常設する。
 // ※各サービスの検索URL形式は非公開で変わる可能性あり（ベストエフォート）。
@@ -1382,7 +1390,8 @@ function renderDetail() {
   let providersHTML;
   if (list.length > 0) {
     const cells = list.map(p => {
-      const logo = posterURL(p.logo_path, "w92");
+      const logoPath = PROVIDER_LOGO_OVERRIDE[p.provider_id] || p.logo_path; // 見た目だけ差し替え
+      const logo = posterURL(logoPath, "w92");
       const logoEl = logo ? '<img src="' + logo + '" alt="">' : '';
 
       const dest = resolveProviderLink(p.provider_id, title, link);
