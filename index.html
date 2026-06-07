@@ -524,6 +524,27 @@
   }
   .provider.affiliate:hover { filter: brightness(1.08); }
   .provider.affiliate .aff-arrow { color: #ff7ac0; font-weight: 700; }
+  /* サイトフッター（作品一覧への内部リンク＝クロール経路＆SEO） */
+  .site-footer {
+    max-width: 560px;
+    margin: 40px auto 0;
+    padding: 24px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  .site-footer a {
+    display: inline-block;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 18px;
+  }
+  .site-footer a:hover { border-color: var(--accent); }
+  .site-footer p { font-size: 0.74rem; color: var(--sub); margin: 12px 0 0; line-height: 1.6; }
+
   .pr-badge {
     display: inline-block;
     margin-left: 4px;
@@ -721,6 +742,11 @@
     <div class="loadmore" id="loadmore"></div>
   </div>
 </main>
+
+<footer class="site-footer">
+  <a href="/title/">📺 人気作品の配信先一覧を見る</a>
+  <p>観たい映画・ドラマがNetflix・U-NEXT・Amazonプライム・Disney+など日本のどの配信サービスで観られるかを検索できます。</p>
+</footer>
 
 <div class="modal-overlay" id="overlay">
   <div class="modal" id="modal"></div>
