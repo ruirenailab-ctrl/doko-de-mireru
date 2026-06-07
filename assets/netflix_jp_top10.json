@@ -1,0 +1,98 @@
+{
+  "source": "Netflix Top 10 (公式) × TMDB",
+  "region": "JP",
+  "week": "2026-05-31",
+  "generated_at": "2026-06-07",
+  "films": [
+    {
+      "rank": 1,
+      "type": "movie",
+      "id": 1464533,
+      "title": "爆弾",
+      "poster": "/7d4Gb3R1W6OByg46V5TSCNbbpUW.jpg",
+      "year": "2025",
+      "netflix_title": "SUZUKI=BAKUDAN"
+    },
+    {
+      "rank": 2,
+      "type": "movie",
+      "id": 1338799,
+      "title": "劇場版総集編 呪術廻戦 懐玉・玉折",
+      "poster": "/gO0B3CwQ0gmLSFk9YwkNMvvvp0a.jpg",
+      "year": "2025",
+      "netflix_title": "Jujutsu Kaisen: Hidden Inventory / Premature Death – the Movie"
+    },
+    {
+      "rank": 3,
+      "type": "movie",
+      "id": 736820,
+      "title": "コンフィデンシャル：国際共助捜査",
+      "poster": "/raLUNSOj3wDibkzbDNIcqucLTe7.jpg",
+      "year": "2022",
+      "netflix_title": "Confidential Assignment 2: International"
+    },
+    {
+      "rank": 4,
+      "type": "movie",
+      "id": 46943,
+      "title": "The Point Men",
+      "poster": "/zNeO3ygV4sgsV0ERrJQzuCbTk8C.jpg",
+      "year": "2001",
+      "netflix_title": "The Point Men"
+    },
+    {
+      "rank": 5,
+      "type": "movie",
+      "id": 1368881,
+      "title": "レディース・ファースト?!",
+      "poster": "/kjR56Yv17pbjTVBTMjqepvcus4f.jpg",
+      "year": "2026",
+      "netflix_title": "Ladies First"
+    },
+    {
+      "rank": 6,
+      "type": "movie",
+      "id": 1136558,
+      "title": "みなに幸あれ",
+      "poster": "/80DGQv5qyz9k8fR7BFuXBv928dc.jpg",
+      "year": "2024",
+      "netflix_title": "Best Wishes to All"
+    },
+    {
+      "rank": 7,
+      "type": "movie",
+      "id": 698222,
+      "title": "今日から俺は!! 劇場版",
+      "poster": "/lerONWVN0MjraG0iVjKWNUGDzRl.jpg",
+      "year": "2020",
+      "netflix_title": "From Today, It's My Turn!!: The Movie"
+    },
+    {
+      "rank": 8,
+      "type": "movie",
+      "id": 519182,
+      "title": "怪盗グルーのミニオン超変身",
+      "poster": "/nV02dGq0sOxp3DMvUByDEI5pLOd.jpg",
+      "year": "2024",
+      "netflix_title": "Despicable Me 4"
+    },
+    {
+      "rank": 9,
+      "type": "movie",
+      "id": 1280472,
+      "title": "傲慢と善良",
+      "poster": "/1rwnPU5qTIQSEvRxtNapxIZFg3I.jpg",
+      "year": "2024",
+      "netflix_title": "Arrogance and Virtue"
+    },
+    {
+      "rank": 10,
+      "type": "movie",
+      "id": 1219439,
+      "title": "あんのこと",
+      "poster": "/6AQnfugdcpUajYf5aYDiIpatwA9.jpg",
+      "year": "2024",
+      "netflix_title": "A Girl Named Ann"
+    }
+  ]
+}

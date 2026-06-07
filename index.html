@@ -753,6 +753,8 @@ async function renderHome() {
   homeEl.innerHTML =
     (recentlyViewed.length > 0 ? '<section class="row"><h2 class="row-title">🕘 最近チェックした作品</h2><div id="home-recent"></div></section>' : "")
     + (favorites.size > 0 ? '<section class="row"><h2 class="row-title">♥ お気に入り</h2><div id="home-fav"></div></section>' : "")
+    + '<section class="row" id="sec-netflix"><h2 class="row-title">🔴 Netflix 今週の映画TOP10（日本）</h2>'
+    + '<div id="home-netflix"><div class="status"><div class="spinner sm"></div></div></div></section>'
     + (hasFilter ? rowSkeleton("home-mine", "📌 あなたのサービスで見られる人気作", "mine") : "")
     + rowSkeleton("home-trending-movie", "🔥 今週話題の映画", "trendMovie")
     + rowSkeleton("home-trending-tv", "📺 今週話題のドラマ", "trendTv")
@@ -768,6 +770,7 @@ async function renderHome() {
   if (recentlyViewed.length > 0) renderRecentRail();
   // お気に入り（保存済みデータからその場で描画・APIフェッチ不要）
   if (favorites.size > 0) renderFavRail();
+  renderNetflixRail(); // Netflix公式Top10（週次バッチ生成のJSONを読む）
 
   // 日付ヘルパ（期間絞り込み・将来も動くよう動的計算）
   const today = new Date();
@@ -1845,6 +1848,30 @@ function recordRecent(item) {
   recentlyViewed.unshift(item);     // 最新を先頭へ
   if (recentlyViewed.length > 20) recentlyViewed = recentlyViewed.slice(0, 20);
   try { localStorage.setItem("recentlyViewed", JSON.stringify(recentlyViewed)); } catch (e) {}
+}
+
+// Netflix公式Top10（週次バッチが assets/netflix_jp_top10.json を更新）
+async function renderNetflixRail() {
+  const box = document.getElementById("home-netflix");
+  if (!box) return;
+  try {
+    const res = await fetch("assets/netflix_jp_top10.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("no data");
+    const data = await res.json();
+    const items = (data.films || []).filter(it => it.id && it.poster);
+    if (!items.length) throw new Error("empty");
+    const rail = document.createElement("div");
+    rail.className = "rail";
+    items.forEach(it => rail.appendChild(railCardEl({
+      type: it.type || "movie", id: it.id, title: it.title,
+      poster: it.poster, year: it.year, typeLabel: "映画"
+    }, it.rank)));
+    box.innerHTML = "";
+    box.appendChild(rail);
+  } catch (e) {
+    const sec = document.getElementById("sec-netflix"); // データが無ければレールごと隠す
+    if (sec) sec.remove();
+  }
 }
 
 function renderRecentRail() {
