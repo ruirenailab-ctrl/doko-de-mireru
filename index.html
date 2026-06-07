@@ -497,6 +497,26 @@
   }
   .provider .arrow { font-size: 0.62rem; color: var(--accent); margin-top: 3px; }
 
+  /* アフィリエイト誘導ボタン（未登録サービスでの新規登録） */
+  .provider.affiliate {
+    background: linear-gradient(160deg, rgba(124,92,255,0.16), rgba(255,90,170,0.12));
+    border-color: var(--accent);
+  }
+  .provider.affiliate:hover { filter: brightness(1.08); }
+  .provider.affiliate .aff-arrow { color: #ff7ac0; font-weight: 700; }
+  .pr-badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 5px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1.3;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.16);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
   /* その他サービスで探す */
   .extra-label {
     font-size: 0.85rem;
@@ -701,6 +721,27 @@ const IMG_BASE = "https://image.tmdb.org/t/p/";
 const LANG = "ja-JP";
 const REGION = "JP";
 
+// ====================================================================
+//  アクセス解析（GA4）— 測定IDを入れると自動で有効化。空なら完全無効。
+//  GA_ID = "G-XXXXXXXXXX"（Googleアナリティクスで作成したプロパティのID）
+// ====================================================================
+const GA_ID = "";   // ← 社長がGA4プロパティ作成後にここへ測定IDを貼る
+(function initGA() {
+  if (!GA_ID) return;
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+  window.gtag("js", new Date());
+  window.gtag("config", GA_ID);
+})();
+// イベント計測ヘルパー（GA未設定時は何もしない）
+function trackEvent(name, params) {
+  if (GA_ID && typeof window.gtag === "function") window.gtag("event", name, params || {});
+}
+
 const qInput = document.getElementById("q");
 const searchBtn = document.getElementById("searchBtn");
 const homeLink = document.getElementById("homeLink");
@@ -767,8 +808,51 @@ function makeItem(raw, defaultType) {
     title,
     year: dateStr ? dateStr.slice(0, 4) : "—",
     typeLabel: type === "movie" ? "映画" : "ドラマ",
-    poster: raw.poster_path
+    poster: raw.poster_path,
+    genreIds: raw.genre_ids || [],           // パーソナライズ用（レール並べ替え）
+    popularity: raw.popularity || 0,
+    voteAvg: raw.vote_average || 0
   };
+}
+
+// ====================================================================
+//  パーソナライズ（自分の閲覧履歴・お気に入りの傾向でレールを並べ替え）
+//  すべて localStorage 由来。バックエンド不要・端末ローカルのみ。
+// ====================================================================
+let _userProfile = null;
+function invalidateProfile() { _userProfile = null; }
+
+// 閲覧履歴(時間減衰あり)＋お気に入り(明示的意図=重め)からジャンル嗜好を抽出
+function buildUserProfile() {
+  const genreWeight = {};
+  recentlyViewed.forEach((item, i) => {
+    const decay = 1 / (1 + i * 0.15);       // 新しい閲覧ほど重い（i=0で1.0, i=19で約0.26）
+    (item.genres || []).forEach(gid => { genreWeight[gid] = (genreWeight[gid] || 0) + decay; });
+  });
+  favorites.forEach(item => {               // favorites は Map（値を走査）
+    (item.genres || []).forEach(gid => { genreWeight[gid] = (genreWeight[gid] || 0) + 1.5; });
+  });
+  const total = Object.values(genreWeight).reduce((a, b) => a + b, 0);
+  return { genreWeight, isEmpty: total === 0 };
+}
+function getUserProfile() {
+  if (!_userProfile) _userProfile = buildUserProfile();
+  return _userProfile;
+}
+
+// TMDBの並び(=市場トレンド)を主軸に、自分のジャンル嗜好で穏やかに浮上させる。
+// score = 0.6×トレンド順位 + 0.4×ジャンル一致。元の curation を壊しすぎない配合。
+function personalizeItems(items) {
+  const profile = getUserProfile();
+  if (profile.isEmpty || items.length < 2) return items;
+  const N = items.length;
+  const raws = items.map(it => (it.genreIds || [])
+    .reduce((s, gid) => s + (profile.genreWeight[gid] || 0), 0));
+  const maxRaw = Math.max(1e-9, ...raws);
+  return items
+    .map((it, i) => ({ it, score: 0.6 * (1 - i / N) + 0.4 * (raws[i] / maxRaw) }))
+    .sort((a, b) => b.score - a.score)
+    .map(s => s.it);
 }
 
 // ====================================================================
@@ -957,6 +1041,9 @@ async function loadRail(containerId, path, params, defaultType, ranked, availMod
       return;
     }
 
+    // ランキング系(Netflix公式Top10等)は公式順を維持。それ以外は自分の嗜好で並べ替え。
+    if (!ranked) items = personalizeItems(items);
+
     const rail = document.createElement("div");
     rail.className = "rail";
     items.forEach((it, i) => rail.appendChild(railCardEl(it, ranked ? i + 1 : 0)));
@@ -1087,6 +1174,7 @@ async function doSearch() {
     goHome(); // 空検索ならホームへ
     return;
   }
+  trackEvent("search", { search_term: query });
   pushNav({ view: "search", q: query });
   await renderSearch(query);
 }
@@ -1274,6 +1362,7 @@ async function openDetail(type, id) {
     }
     detailState = { type, detail, jp, link: jp.link || null, activeTab: pickDefaultTab(jp) };
     recordRecent(favItemFromDetail(type, detail)); // 閲覧履歴に記録（トラフィック）
+    trackEvent("view_title", { content_type: type, item_id: id });
     renderDetail();
   } catch (e) {
     modal.innerHTML =
@@ -1392,6 +1481,37 @@ function resolveProviderLink(providerId, rawTitle, fallback) {
   return null;
 }
 
+// ====================================================================
+//  アフィリエイト（未登録サービスでの新規登録を促してマネタイズ）
+//  各ASPの提携承認後、{PLACEHOLDER} を実値に差し替えると自動で有効化される。
+//  プレースホルダが残っている間は無効＝表示は一切変わらない（壊れたリンクを出さない）。
+//  キー = TMDB provider_id。EXTRA_SERVICES は名前キー(extraAffiliate)。
+// ====================================================================
+const AFFILIATE_LINKS = {
+  // U-NEXT（バリューコマース・最高単価1,430円・31日無料）
+  84:   { url: "https://ck.jp.ap.valuecommerce.com/servlet/referral?sid={VC_SID}&pid={VC_PID_UNEXT}", label: "31日間無料で観る" },
+  2284: { url: "https://ck.jp.ap.valuecommerce.com/servlet/referral?sid={VC_SID}&pid={VC_PID_UNEXT}", label: "31日間無料で観る" },
+  // Amazon Prime Video（もしもアフィリエイト・30日無料）
+  9:    { url: "https://af.moshimo.com/af/c/click?a_id={MOSHIMO_A_ID}&p_id={MOSHIMO_P_ID_AMAZON}", label: "Prime Videoを無料で試す" },
+  2100: { url: "https://af.moshimo.com/af/c/click?a_id={MOSHIMO_A_ID}&p_id={MOSHIMO_P_ID_AMAZON}", label: "Prime Videoを無料で試す" },
+  // Hulu（Accesstrade）
+  15:   { url: "https://h.accesstrade.net/sp/cc?rk={AT_RK_HULU}", label: "無料トライアルで観る" },
+  // Disney+（Accesstrade）
+  337:  { url: "https://h.accesstrade.net/sp/cc?rk={AT_RK_DISNEY}", label: "Disney+を試す" }
+};
+// EXTRA_SERVICES（TMDB配信データに載らない）向けのアフィリ設定（名前キー）
+const EXTRA_AFFILIATE = {
+  "ABEMA":  { url: "https://h.accesstrade.net/sp/cc?rk={AT_RK_ABEMA}", label: "ABEMAプレミアムを無料で試す" },
+  "DMM TV": { url: "https://px.a8.net/svt/ejp?a8mat={A8MAT_DMMTV}", label: "DMM TVを無料で試す" }
+};
+// 提携IDが実値に差し替わっていれば true（{XXX} が残っていれば未設定＝無効）
+function affReady(conf) { return !!conf && !/\{[A-Z0-9_]+\}/.test(conf.url); }
+function affForProvider(providerId) { const c = AFFILIATE_LINKS[providerId]; return affReady(c) ? c : null; }
+function affForExtra(name) { const c = EXTRA_AFFILIATE[name]; return affReady(c) ? c : null; }
+function anyAffiliateReady() {
+  return Object.values(AFFILIATE_LINKS).some(affReady) || Object.values(EXTRA_AFFILIATE).some(affReady);
+}
+
 // ===== アプリ起動（インストール済みならアプリへ・無ければWebへ） =====
 // iOS: httpsのままでUniversal Links対応サービス（Prime Video等）が自動でアプリを開く。
 //      （カスタムスキームは未インストール時にエラー画面が出るため使わない）
@@ -1467,6 +1587,18 @@ function renderDetail() {
       // 見た目だけ差し替え（override値は最終src。無ければTMDBロゴ）
       const logo = PROVIDER_LOGO_OVERRIDE[p.provider_id] || posterURL(p.logo_path, "w92");
       const logoEl = logo ? '<img src="' + logo + '" alt="">' : '';
+
+      // 見放題タブ × 未登録サービス × 提携設定済み → 新規登録アフィリへ誘導
+      const aff = (activeTab === "flatrate" && !myServices.has(p.provider_id))
+        ? affForProvider(p.provider_id) : null;
+      if (aff) {
+        return '<a class="provider affiliate" href="' + escapeHTML(aff.url)
+          + '" target="_blank" rel="noopener sponsored">'
+          + logoEl
+          + '<span>' + escapeHTML(p.provider_name)
+          + '<span class="pr-badge">PR</span></span>'
+          + '<span class="arrow aff-arrow">' + escapeHTML(aff.label) + ' ›</span></a>';
+      }
 
       const dest = resolveProviderLink(p.provider_id, title, link);
       let tag = "div", href = "", arrow = "";
@@ -1565,7 +1697,9 @@ function renderDetail() {
     + '</div>'
     + trailerHTML + sectionBody + extraHTML + castHTML + recsHTML
     + '</div>'
-    + '<p class="tmdb-note">ロゴをタップすると各サービスで作品名を検索して開きます<br>配信状況は変わることがあります。最終確認は各公式サイトでお願いします。<br>配信情報の提供：JustWatch / The Movie Database (TMDB)</p>';
+    + '<p class="tmdb-note">ロゴをタップすると各サービスで作品名を検索して開きます<br>配信状況は変わることがあります。最終確認は各公式サイトでお願いします。<br>配信情報の提供：JustWatch / The Movie Database (TMDB)'
+    + (anyAffiliateReady() ? '<br>「PR」の付いたリンクは広告（アフィリエイト）です。経由して登録されると当サイトに報酬が発生する場合があります。' : '')
+    + '</p>';
 
   modal.querySelectorAll(".tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1851,6 +1985,7 @@ function toggleFav(item) {
   else favorites.set(k, item);
   saveFavorites();
   updateFavBtn();
+  invalidateProfile();   // 嗜好が変わったのでパーソナライズを再計算
   return favorites.has(k);
 }
 
@@ -1872,7 +2007,8 @@ function favItemFromDetail(type, detail) {
     title: title || "（タイトル不明）",
     year: dateStr ? dateStr.slice(0, 4) : "—",
     typeLabel: isMovie ? "映画" : "ドラマ",
-    poster: detail.poster_path || null
+    poster: detail.poster_path || null,
+    genres: (detail.genres || []).map(g => g.id)   // パーソナライズ用のジャンル嗜好
   };
 }
 
@@ -1906,6 +2042,7 @@ function recordRecent(item) {
   recentlyViewed.unshift(item);     // 最新を先頭へ
   if (recentlyViewed.length > 20) recentlyViewed = recentlyViewed.slice(0, 20);
   try { localStorage.setItem("recentlyViewed", JSON.stringify(recentlyViewed)); } catch (e) {}
+  invalidateProfile();              // 閲覧傾向が変わったのでパーソナライズを再計算
 }
 
 // Netflix公式Top10データ（週次バッチが assets/netflix_jp_top10.json を更新）。
