@@ -224,6 +224,20 @@
     align-items: center;
     gap: 6px;
   }
+  .more-link {
+    margin-left: auto;
+    flex: none;
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 2px 4px 8px;
+    white-space: nowrap;
+  }
+  .more-link:active { opacity: 0.55; }
+  .browse-title { font-size: 1.15rem; margin-bottom: 14px; }
   .rail {
     display: flex;
     gap: 10px;
@@ -614,6 +628,7 @@
   <!-- 検索結果 -->
   <div id="results"></div>
   <div id="grid-wrap" style="display:none;">
+    <h2 class="row-title browse-title" id="grid-title" style="display:none;"></h2>
     <div class="grid" id="grid"></div>
     <div id="sentinel"></div>
     <div class="loadmore" id="loadmore"></div>
@@ -648,6 +663,7 @@ const favview = document.getElementById("favview");
 const results = document.getElementById("results");
 const gridWrap = document.getElementById("grid-wrap");
 const grid = document.getElementById("grid");
+const gridTitle = document.getElementById("grid-title");
 const sentinel = document.getElementById("sentinel");
 const loadmore = document.getElementById("loadmore");
 const overlay = document.getElementById("overlay");
@@ -711,6 +727,24 @@ function makeItem(raw, defaultType) {
 // ====================================================================
 //  ホーム
 // ====================================================================
+let HOME_CFGS = {};      // 各レールの設定（もっとみると共有）
+let lastGenre = null;    // カテゴリ別で最後に選んだジャンル {id, name}
+
+// カテゴリ別の「もっとみる」設定（loadGenreの絞り込みと揃える）
+function catBrowseConfig(id, name) {
+  const params = {
+    with_genres: String(id),
+    sort_by: "popularity.desc",
+    include_adult: "false",
+    watch_region: REGION,
+    with_watch_monetization_types: "flatrate|free|ads|rent|buy",
+    with_origin_country: "JP|US",
+    "vote_count.gte": "80"
+  };
+  if (myServices.size > 0) params.with_watch_providers = myServicesParam();
+  return { title: "🎬 " + name, type: "movie", availMode: null, path: "/discover/movie", params, key: "cat" + id };
+}
+
 async function renderHome() {
   goHomeView();
   const hasFilter = myServices.size > 0;
@@ -719,13 +753,14 @@ async function renderHome() {
   homeEl.innerHTML =
     (recentlyViewed.length > 0 ? '<section class="row"><h2 class="row-title">🕘 最近チェックした作品</h2><div id="home-recent"></div></section>' : "")
     + (favorites.size > 0 ? '<section class="row"><h2 class="row-title">♥ お気に入り</h2><div id="home-fav"></div></section>' : "")
-    + (hasFilter ? rowSkeleton("home-mine", "📌 あなたのサービスで見られる人気作") : "")
-    + rowSkeleton("home-trending-movie", "🔥 今週の話題の映画")
-    + rowSkeleton("home-trending-tv", "📺 今週の話題のドラマ")
-    + rowSkeleton("home-popular", "📈 いま日本で人気の配信作品")
-    + rowSkeleton("home-new", "🆕 最近配信が始まった映画")
-    + rowSkeleton("home-toprated", "⭐ 名作・高評価")
-    + '<section class="row"><h2 class="row-title">🎬 カテゴリ別' + filterTag + '</h2>'
+    + (hasFilter ? rowSkeleton("home-mine", "📌 あなたのサービスで見られる人気作", "mine") : "")
+    + rowSkeleton("home-trending-movie", "🔥 今週話題の映画", "trendMovie")
+    + rowSkeleton("home-trending-tv", "📺 今週話題のドラマ", "trendTv")
+    + rowSkeleton("home-popular", "📈 いま日本で人気の配信作品", "popular")
+    + rowSkeleton("home-new", "🆕 最近配信が始まった映画", "fresh")
+    + rowSkeleton("home-toprated", "⭐ 名作・高評価", "toprated")
+    + '<section class="row"><h2 class="row-title">🎬 カテゴリ別' + filterTag
+    + '<button class="more-link" id="cat-more">もっとみる ›</button></h2>'
     + '<div class="chips" id="cat-chips"></div>'
     + '<div class="grid" id="cat-grid"></div></section>';
 
@@ -734,75 +769,64 @@ async function renderHome() {
   // お気に入り（保存済みデータからその場で描画・APIフェッチ不要）
   if (favorites.size > 0) renderFavRail();
 
-  // マイサービスで見られる人気作（契約サービス設定時のみ）
-  if (hasFilter) {
-    loadRail("home-mine", "/discover/movie",
-      {
-        with_watch_providers: myServicesParam(),
-        watch_region: REGION,
-        sort_by: "popularity.desc",
-        "vote_count.gte": "30",
-        include_adult: "false"
-      },
-      "movie", true);
-  }
-
-  // 直近1年の期間（最近サブスク追加された映画の絞り込み用・将来も動くよう動的計算）
+  // 日付ヘルパ（期間絞り込み・将来も動くよう動的計算）
   const today = new Date();
-  const oneYearAgo = new Date(today);
-  oneYearAgo.setFullYear(today.getFullYear() - 1);
+  const yearsAgo = (n) => { const d = new Date(today); d.setFullYear(today.getFullYear() - n); return d; };
   const fmtDate = (d) => d.getFullYear() + "-"
     + String(d.getMonth() + 1).padStart(2, "0") + "-"
     + String(d.getDate()).padStart(2, "0");
 
-  // 各行は独立に読み込み（1つ失敗しても他は表示）
-  // 🔥 今週の話題の映画＝直近1週間で視聴・検索トラフィックが多い作品（TMDB trending）
-  // trendingはサーバー側で配信絞り込み不可のため、各作品の最新providersを確認し
-  // 「見放題が1つも無い作品」を除外する
-  loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true, "flatrate");
-  // 📺 今週の話題のドラマ
-  loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true, "flatrate");
-  // 📈 いま日本で人気の配信作品＝日本で見放題配信中 × 人気順（popularity＝TMDBのトラフィック指標）
-  // クエリ時点でflatrate絞り込み＋表示直前にprovidersで見放題を実確認（詳細画面と整合）
-  loadRail("home-popular", "/discover/movie",
-    {
-      watch_region: REGION,
-      with_watch_monetization_types: "flatrate",
-      sort_by: "popularity.desc",
-      "vote_count.gte": "50",
-      include_adult: "false"
-    },
-    "movie", true, "flatrate");
-  // 🆕 最近配信が始まった映画＝直近1年公開 × 日本で見放題配信中 × 人気順
-  // クエリ時点でflatrate絞り込み＋表示直前にprovidersで見放題を実確認（詳細画面と整合）
-  loadRail("home-new", "/discover/movie",
-    {
-      with_watch_monetization_types: "flatrate",
-      watch_region: REGION,
-      with_origin_country: "JP|US",
-      sort_by: "popularity.desc",
-      "release_date.gte": fmtDate(oneYearAgo),
-      "release_date.lte": fmtDate(today),
-      "vote_count.gte": "20",
-      include_adult: "false"
-    },
-    "movie", false, "flatrate");
-  // ⭐ 日本の名作・高評価（邦画）＝日本で視聴/購入できる作品のみ
-  loadRail("home-toprated", "/discover/movie",
-    {
-      with_original_language: "ja",
-      sort_by: "vote_average.desc",
-      "vote_count.gte": "300",
-      include_adult: "false",
-      watch_region: REGION,
-      with_watch_monetization_types: "flatrate|free|ads|rent|buy"
-    },
-    "movie", false);
+  // 各レールの設定（レール本体と「もっとみる」で共有＝中身が一致する）
+  // ※trending/movieは劇場系で見放題がほぼ無く全除外され空になるため、
+  //   「今週話題の映画」は discover（見放題×人気×新しめ）をソースにする
+  HOME_CFGS = {
+    trendMovie: { title: "🔥 今週話題の映画", type: "movie", availMode: "flatrate", path: "/discover/movie",
+      params: { watch_region: REGION, with_watch_monetization_types: "flatrate", sort_by: "popularity.desc",
+        "vote_count.gte": "100", "primary_release_date.gte": fmtDate(yearsAgo(3)), include_adult: "false" } },
+    trendTv: { title: "📺 今週話題のドラマ", type: "tv", availMode: "flatrate", path: "/trending/tv/week", params: {} },
+    popular: { title: "📈 いま日本で人気の配信作品", type: "movie", availMode: "flatrate", path: "/discover/movie",
+      params: { watch_region: REGION, with_watch_monetization_types: "flatrate", sort_by: "popularity.desc",
+        "vote_count.gte": "300", include_adult: "false" } },
+    fresh: { title: "🆕 最近配信が始まった映画", type: "movie", availMode: "flatrate", path: "/discover/movie",
+      params: { watch_region: REGION, with_watch_monetization_types: "flatrate", with_origin_country: "JP|US",
+        sort_by: "popularity.desc", "release_date.gte": fmtDate(yearsAgo(1)), "release_date.lte": fmtDate(today),
+        "vote_count.gte": "20", include_adult: "false" } },
+    toprated: { title: "⭐ 名作・高評価", type: "movie", availMode: null, path: "/discover/movie",
+      params: { with_original_language: "ja", sort_by: "vote_average.desc", "vote_count.gte": "300",
+        include_adult: "false", watch_region: REGION, with_watch_monetization_types: "flatrate|free|ads|rent|buy" } }
+  };
+  if (hasFilter) {
+    HOME_CFGS.mine = { title: "📌 あなたのサービスで見られる人気作", type: "movie", availMode: null, path: "/discover/movie",
+      params: { with_watch_providers: myServicesParam(), watch_region: REGION, sort_by: "popularity.desc",
+        "vote_count.gte": "30", include_adult: "false" } };
+  }
+
+  // 「もっとみる」ボタンの配線（同じ設定でブラウズページへ）
+  homeEl.querySelectorAll(".more-link[data-more]").forEach(b => {
+    b.addEventListener("click", () => { const c = HOME_CFGS[b.dataset.more]; if (c) goBrowse(c); });
+  });
+  const catMoreBtn = document.getElementById("cat-more");
+  if (catMoreBtn) catMoreBtn.addEventListener("click", () => {
+    if (lastGenre) goBrowse(catBrowseConfig(lastGenre.id, lastGenre.name));
+  });
+
+  // 各レール本体（1ページ目）。設定はもっとみると共有
+  if (hasFilter) loadRailCfg("home-mine", HOME_CFGS.mine, true);
+  loadRailCfg("home-trending-movie", HOME_CFGS.trendMovie, true);
+  loadRailCfg("home-trending-tv", HOME_CFGS.trendTv, true);
+  loadRailCfg("home-popular", HOME_CFGS.popular, true);
+  loadRailCfg("home-new", HOME_CFGS.fresh, false);
+  loadRailCfg("home-toprated", HOME_CFGS.toprated, false);
   loadCategories();
 }
 
-function rowSkeleton(id, title) {
-  return '<section class="row"><h2 class="row-title">' + title + '</h2>'
+function loadRailCfg(containerId, cfg, ranked) {
+  return loadRail(containerId, cfg.path, cfg.params, cfg.type, ranked, cfg.availMode);
+}
+
+function rowSkeleton(id, title, moreKey) {
+  const more = moreKey ? '<button class="more-link" data-more="' + moreKey + '">もっとみる ›</button>' : "";
+  return '<section class="row"><h2 class="row-title">' + title + more + '</h2>'
     + '<div id="' + id + '"><div class="status"><div class="spinner sm"></div></div></div></section>';
 }
 
@@ -934,19 +958,20 @@ async function loadCategories() {
     chip.addEventListener("click", () => {
       chipsBox.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
       chip.classList.add("active");
-      loadGenre(g.id);
+      loadGenre(g.id, g.name);
     });
     chipsBox.appendChild(chip);
   });
 
-  loadGenre(genres[0].id); // 先頭ジャンルを初期表示
+  loadGenre(genres[0].id, genres[0].name); // 先頭ジャンルを初期表示
 }
 
-async function loadGenre(genreId) {
+async function loadGenre(genreId, genreName) {
   const catGrid = document.getElementById("cat-grid");
   if (!catGrid) return;
   if (catLoading) return;
   catLoading = true;
+  if (genreName) lastGenre = { id: genreId, name: genreName }; // もっとみる用に保持
   catGrid.innerHTML = statusHTML("読み込み中…", false, true);
 
   try {
@@ -1015,7 +1040,9 @@ async function doSearch() {
 async function renderSearch(query) {
   homeEl.style.display = "none";
   favview.style.display = "none";
+  state.mode = "search";
   state.query = query;
+  state.path = null; state.params = null; state.type = null; state.availMode = null; state.title = null;
   state.page = 0;
   state.totalPages = 0;
   state.loading = false;
@@ -1023,8 +1050,36 @@ async function renderSearch(query) {
   state.count = 0;
   grid.innerHTML = "";
   loadmore.innerHTML = "";
+  gridTitle.style.display = "none";
   gridWrap.style.display = "none";
   showStatus("検索中…", false, true);
+
+  await loadNextPage(true);
+}
+
+// 「もっとみる」ページ＝任意のTMDBクエリをページ送りで全件表示
+async function renderBrowse(cfg) {
+  homeEl.style.display = "none";
+  favview.style.display = "none";
+  qInput.value = "";
+  state.mode = "browse";
+  state.query = null;
+  state.path = cfg.path;
+  state.params = cfg.params || {};
+  state.type = cfg.type || "movie";
+  state.availMode = cfg.availMode || null;
+  state.title = cfg.title || "もっとみる";
+  state.page = 0;
+  state.totalPages = 0;
+  state.loading = false;
+  state.seen = new Set();
+  state.count = 0;
+  grid.innerHTML = "";
+  loadmore.innerHTML = "";
+  gridTitle.style.display = "none";
+  gridWrap.style.display = "none";
+  window.scrollTo(0, 0);
+  showStatus("読み込み中…", false, true);
 
   await loadNextPage(true);
 }
@@ -1039,35 +1094,56 @@ async function loadNextPage(isFirst = false) {
 
   const nextPage = state.page + 1;
   try {
-    const data = await tmdbFetch("/search/multi", {
-      language: LANG,
-      query: state.query,
-      include_adult: "false",
-      region: REGION,
-      page: String(nextPage)
-    });
+    let data, raws;
+    if (state.mode === "browse") {
+      data = await tmdbFetch(state.path, Object.assign(
+        { language: LANG, region: REGION, page: String(nextPage) }, state.params));
+      raws = (data.results || []).filter(r => r.media_type !== "person");
+    } else {
+      data = await tmdbFetch("/search/multi", {
+        language: LANG, query: state.query, include_adult: "false",
+        region: REGION, page: String(nextPage)
+      });
+      raws = (data.results || []).filter(r => r.media_type === "movie" || r.media_type === "tv");
+    }
 
     state.page = data.page || nextPage;
     state.totalPages = data.total_pages || 0;
 
-    const items = (data.results || [])
-      .filter(r => r.media_type === "movie" || r.media_type === "tv");
+    let items = raws
+      .map(r => makeItem(r, state.type || r.media_type))
+      .filter(it => it.id && it.poster);
+
+    // ブラウズで配信絞り込みが必要なら providers で実確認（見放題 or いずれか）
+    if (state.mode === "browse" && state.availMode && items.length) {
+      const jps = await Promise.all(items.map(it => getJPProviders(it.type, it.id)));
+      items = items.filter((it, i) => {
+        const jp = jps[i];
+        if (jp === null) return false;
+        return state.availMode === "flatrate" ? jpHasFlatrate(jp) : jpHasAny(jp);
+      });
+    }
 
     if (isFirst && items.length === 0 && state.count === 0) {
-      showStatus("「" + escapeHTML(state.query) + "」に一致する作品が見つかりませんでした。別のキーワードでお試しください。", true);
+      const msg = state.mode === "browse"
+        ? "該当する作品が見つかりませんでした。"
+        : "「" + escapeHTML(state.query) + "」に一致する作品が見つかりませんでした。別のキーワードでお試しください。";
+      showStatus(msg, true);
       return;
     }
 
     if (isFirst) {
       results.innerHTML = "";
+      if (state.title) { gridTitle.textContent = state.title; gridTitle.style.display = "block"; }
+      else { gridTitle.style.display = "none"; }
       gridWrap.style.display = "block";
     }
 
-    appendResults(items);
+    appendItems(items);
     updateLoadMore();
   } catch (e) {
     if (isFirst) {
-      showStatus(e.message || "検索中にエラーが発生しました。", true);
+      showStatus(e.message || "読み込み中にエラーが発生しました。", true);
     } else {
       loadmore.innerHTML = '<div class="loadmore" style="color:var(--danger)">追加読み込みに失敗しました。スクロールで再試行します。</div>';
       state.page = nextPage - 1;
@@ -1080,7 +1156,7 @@ async function loadNextPage(isFirst = false) {
 
 function updateLoadMore() {
   if (state.totalPages && state.page >= state.totalPages) {
-    loadmore.innerHTML = '<div class="loadmore end">— すべての結果を表示しました（' + state.count + '件） —</div>';
+    loadmore.innerHTML = '<div class="loadmore end">— すべて表示しました（' + state.count + '件） —</div>';
   } else {
     loadmore.innerHTML = "";
   }
@@ -1091,13 +1167,13 @@ function showStatus(msg, isError = false, withSpinner = false) {
   results.innerHTML = statusHTML(msg, isError, withSpinner);
 }
 
-function appendResults(items) {
+function appendItems(items) {
   const frag = document.createDocumentFragment();
-  items.forEach(raw => {
-    const key = raw.media_type + ":" + raw.id;
+  items.forEach(it => {
+    const key = it.type + ":" + it.id;
     if (state.seen.has(key)) return;
     state.seen.add(key);
-    frag.appendChild(gridCardEl(makeItem(raw, raw.media_type)));
+    frag.appendChild(gridCardEl(it));
     state.count++;
   });
   grid.appendChild(frag);
@@ -1468,6 +1544,7 @@ function pathFor(st) {
   if (st && st.view === "detail") return base + "?t=" + st.type + "&id=" + st.id;
   if (st && st.view === "search") return base + "?q=" + encodeURIComponent(st.q);
   if (st && st.view === "favorites") return base + "?view=fav";
+  if (st && st.view === "browse") return base + "?list=" + encodeURIComponent((st.config && (st.config.key || st.config.title)) || "more");
   return base; // home
 }
 function pushNav(st) {
@@ -1491,6 +1568,10 @@ function goDetail(type, id) {
   pushNav({ view: "detail", type, id });
   openDetail(type, id);
 }
+function goBrowse(cfg) {
+  pushNav({ view: "browse", config: cfg });
+  renderBrowse(cfg);
+}
 
 // 履歴の状態に合わせて画面を復元（戻る/進む時）
 function applyState(st) {
@@ -1512,6 +1593,16 @@ function applyState(st) {
       gridWrap.style.display = "block";
     } else {
       renderSearch(st.q);
+    }
+  } else if (st.view === "browse" && st.config) {
+    // 詳細から戻った等でグリッドが残っていれば再フェッチせず表示だけ戻す
+    if (state.mode === "browse" && state.title === st.config.title && grid.children.length) {
+      homeEl.style.display = "none";
+      favview.style.display = "none";
+      results.innerHTML = "";
+      gridWrap.style.display = "block";
+    } else {
+      renderBrowse(st.config);
     }
   } else if (st.view === "favorites") {
     renderFavorites();
