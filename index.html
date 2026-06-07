@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>配信サービス検索 | どこで見られる？</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --card2: #22262f;
+    --text: #f2f4f8;
+    --sub: #9aa3b2;
+    --accent: #4f8cff;
+    --accent2: #3b6fd6;
+    --danger: #ff6b6b;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(15,17,21,0.92);
+    backdrop-filter: blur(8px);
+    padding: 16px;
+    border-bottom: 1px solid #262a33;
+  }
+  h1 {
+    font-size: 1.15rem;
+    margin: 0 0 12px;
+    text-align: center;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    user-select: none;
+  }
+  .search-row {
+    display: flex;
+    gap: 8px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  #q {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: var(--radius);
+    border: 1px solid #333944;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+  }
+  #q:focus { border-color: var(--accent); }
+  #searchBtn {
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #searchBtn:active { background: var(--accent2); }
+  #searchBtn:disabled { opacity: 0.5; cursor: default; }
+
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .status {
+    text-align: center;
+    color: var(--sub);
+    padding: 32px 16px;
+    font-size: 0.95rem;
+  }
+  .status.error {
+    color: var(--danger);
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.25);
+    border-radius: var(--radius);
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid #333944;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  .spinner.sm { width: 22px; height: 22px; border-width: 3px; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #262a33;
+    transition: transform 0.1s, border-color 0.15s;
+  }
+  .card:active { transform: scale(0.98); }
+  .poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    background: var(--card2);
+    display: block;
+  }
+  .poster.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sub);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 8px;
+  }
+  .card-body { padding: 8px 10px 12px; }
+  .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0 0 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-meta { font-size: 0.78rem; color: var(--sub); }
+  .badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--card2);
+    color: var(--sub);
+    margin-left: 6px;
+  }
+
+  /* ===== ホーム ===== */
+  .row { margin-bottom: 26px; }
+  .row-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rail {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    margin: 0 -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .rail::-webkit-scrollbar { height: 0; }
+  .rail-card {
+    flex: 0 0 auto;
+    width: 116px;
+    scroll-snap-align: start;
+    cursor: pointer;
+  }
+  .rail-card:active { transform: scale(0.97); }
+  .rail-poster {
+    width: 116px;
+    height: 174px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: var(--card2);
+    display: block;
+    border: 1px solid #262a33;
+  }
+  .rail-poster.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--sub); font-size: 0.72rem; text-align: center; padding: 6px;
+  }
+  .rail-rank {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-right: 4px;
+  }
+  .rail-title {
+    font-size: 0.76rem;
+    margin: 6px 0 0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #dfe4ec;
+  }
+  .row .status { padding: 18px; font-size: 0.85rem; }
+
+  /* カテゴリ別チップ */
+  .chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin: 0 -16px 14px;
+    padding: 0 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar { height: 0; }
+  .chip {
+    flex: 0 0 auto;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid #333944;
+    background: var(--card);
+    color: var(--sub);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* 無限スクロール用センチネル */
+  #sentinel { height: 1px; }
+  .loadmore {
+    text-align: center;
+    color: var(--sub);
+    padding: 20px 16px 8px;
+    font-size: 0.85rem;
+  }
+  .loadmore.end { color: #5a6271; font-size: 0.78rem; }
+
+  /* ===== モーダル ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 50;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg);
+    width: 100%;
+    max-width: 560px;
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    border-top: 1px solid #2a2f3a;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header {
+    display: flex;
+    gap: 12px;
+    padding: 18px 16px 12px;
+    position: relative;
+  }
+  .modal-poster {
+    width: 84px;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+    background: var(--card2);
+  }
+  .modal-info { flex: 1; min-width: 0; padding-right: 28px; }
+  .modal-info h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .modal-info .sub { color: var(--sub); font-size: 0.82rem; margin-bottom: 8px; }
+  .overview { font-size: 0.82rem; color: #cdd3dd; margin: 0; }
+  .closeBtn {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card2);
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-section { padding: 6px 16px 24px; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin: 14px 0 14px;
+    background: var(--card);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid #262a33;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--sub);
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tab.active { background: var(--accent); color: #fff; }
+  .tab .count { font-size: 0.66rem; opacity: 0.85; margin-left: 3px; }
+
+  .providers {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    gap: 10px;
+  }
+  .provider {
+    background: var(--card);
+    border: 1px solid #262a33;
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.15s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .provider:active { transform: scale(0.96); }
+  .provider:hover { border-color: var(--accent); }
+  .provider img {
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    object-fit: cover;
+    margin-bottom: 6px;
+  }
+  .provider span {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--sub);
+    line-height: 1.25;
+  }
+  .provider .arrow { font-size: 0.62rem; color: var(--accent); margin-top: 3px; }
+
+  /* その他サービスで探す */
+  .extra-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin: 22px 0 6px;
+    color: var(--text);
+  }
+  .extra-note { font-size: 0.72rem; color: var(--sub); margin: 0 0 10px; }
+  .extra-links { display: flex; flex-wrap: wrap; gap: 8px; }
+  .extra-link {
+    display: inline-block;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid #333944;
+    background: var(--card);
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .extra-link:active { transform: scale(0.96); }
+
+  /* 作品メタ情報（評価・尺・ジャンル） */
+  .modal-meta {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 4px 10px; font-size: 0.8rem; color: var(--sub); margin: 2px 0 6px;
+  }
+  .modal-meta .star { color: #ffc14d; font-weight: 700; }
+  .genre-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .genre-tag {
+    font-size: 0.68rem; padding: 2px 9px; border-radius: 999px;
+    background: var(--card2); color: var(--sub);
+  }
+
+  /* 予告編 */
+  .trailer {
+    position: relative; width: 100%; aspect-ratio: 16/9;
+    border-radius: 12px; overflow: hidden; margin: 6px 0 4px; background: #000;
+  }
+  .trailer iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  /* モーダル内セクション見出し */
+  .sub-label { font-size: 0.92rem; font-weight: 700; margin: 22px 0 10px; }
+
+  /* キャスト */
+  .cast-rail { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px; }
+  .cast-rail::-webkit-scrollbar { height: 0; }
+  .cast { flex: 0 0 auto; width: 74px; text-align: center; }
+  .cast img, .cast .noimg {
+    width: 74px; height: 74px; border-radius: 50%; object-fit: cover;
+    background: var(--card2); display: block;
+  }
+  .cast .noimg { display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 0.62rem; }
+  .cast .nm { font-size: 0.68rem; margin-top: 5px; line-height: 1.25; color: #dfe4ec; }
+  .cast .ch { font-size: 0.62rem; color: var(--sub); margin-top: 1px; }
+
+  /* シェアボタン */
+  .shareBtn {
+    position: absolute; top: 12px; right: 50px;
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: var(--card2); color: var(--text); font-size: 14px; cursor: pointer; line-height: 1;
+  }
+
+  /* トースト */
+  .toast {
+    position: fixed; left: 50%; bottom: 40px;
+    transform: translateX(-50%) translateY(10px);
+    background: #fff; color: #16181d; padding: 11px 20px; border-radius: 999px;
+    font-size: 0.85rem; font-weight: 700; z-index: 100;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+    opacity: 0; transition: opacity .22s, transform .22s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 設定ボタン＆設定モーダル */
+  .settings-btn {
+    position: absolute; top: 14px; right: 14px;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid #333944; background: var(--card); color: var(--text);
+    font-size: 16px; cursor: pointer; line-height: 1;
+  }
+
+  /* お気に入りボタン（ヘッダー左上） */
+  .fav-btn {
+    position: absolute; top: 14px; left: 14px;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid #333944; background: var(--card); color: var(--text);
+    font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  .fav-btn.has { color: var(--danger); border-color: rgba(255,107,107,0.5); }
+  .fav-btn .fav-count {
+    position: absolute; top: -5px; right: -5px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    background: var(--danger); color: #fff;
+    font-size: 0.6rem; font-weight: 700;
+    border-radius: 999px; line-height: 16px; text-align: center;
+  }
+
+  /* 詳細モーダルのアクション行（お気に入り／シェア） */
+  .action-row { display: flex; gap: 8px; margin: 2px 0 4px; }
+  .action-btn {
+    flex: 1; padding: 11px; border-radius: 11px;
+    border: 1px solid #333944; background: var(--card);
+    color: var(--text); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    transition: transform 0.1s, background 0.15s, border-color 0.15s;
+  }
+  .action-btn:active { transform: scale(0.97); }
+  .action-btn.fav.on {
+    background: rgba(255,107,107,0.14); color: var(--danger);
+    border-color: rgba(255,107,107,0.45);
+  }
+  .set-intro { font-size: 0.82rem; color: var(--sub); margin: 0 0 6px; }
+  .set-item {
+    display: flex; align-items: center; gap: 12px; padding: 13px 4px;
+    border-bottom: 1px solid #22262f; cursor: pointer;
+  }
+  .set-item:last-of-type { border-bottom: 0; }
+  .set-item input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .set-item .nm { font-size: 0.92rem; font-weight: 600; }
+  .set-save {
+    width: 100%; padding: 13px; margin-top: 16px; border: none; border-radius: 12px;
+    background: var(--accent); color: #fff; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  }
+
+  /* 絞り込み中バッジ（ホーム見出し用） */
+  .filter-tag {
+    font-size: 0.7rem; font-weight: 600; color: var(--accent);
+    background: rgba(79,140,255,0.12); border: 1px solid rgba(79,140,255,0.3);
+    padding: 1px 8px; border-radius: 999px; margin-left: 8px;
+  }
+  .tmdb-note {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--sub);
+    padding: 8px 16px 16px;
+  }
+  .modal .status { padding: 24px 16px; }
+</style>
+</head>
+<body>
+<header>
+  <button id="favBtn" class="fav-btn" title="お気に入り">♡</button>
+  <button id="settingsBtn" class="settings-btn" title="マイサービス設定">⚙</button>
+  <h1 id="homeLink">📺 どこで見られる？</h1>
+  <div class="search-row">
+    <input id="q" type="search" placeholder="作品名を入力（例：ゴジラ）" enterkeyhint="search" autocomplete="off">
+    <button id="searchBtn">検索</button>
+  </div>
+</header>
+
+<main>
+  <!-- ホーム -->
+  <div id="home"></div>
+
+  <!-- お気に入り一覧 -->
+  <div id="favview" style="display:none;"></div>
+
+  <!-- 検索結果 -->
+  <div id="results"></div>
+  <div id="grid-wrap" style="display:none;">
+    <div class="grid" id="grid"></div>
+    <div id="sentinel"></div>
+    <div class="loadmore" id="loadmore"></div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal" id="settingsModal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+const API_KEY = "aa9cb50c43ec1d77e920aa78e66e32e9";
+const API_BASE = "https://api.themoviedb.org/3";
+const IMG_BASE = "https://image.tmdb.org/t/p/";
+const LANG = "ja-JP";
+const REGION = "JP";
+
+const qInput = document.getElementById("q");
+const searchBtn = document.getElementById("searchBtn");
+const homeLink = document.getElementById("homeLink");
+const homeEl = document.getElementById("home");
+const favBtn = document.getElementById("favBtn");
+const favview = document.getElementById("favview");
+const results = document.getElementById("results");
+const gridWrap = document.getElementById("grid-wrap");
+const grid = document.getElementById("grid");
+const sentinel = document.getElementById("sentinel");
+const loadmore = document.getElementById("loadmore");
+const overlay = document.getElementById("overlay");
+const modal = document.getElementById("modal");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsOverlay = document.getElementById("settingsOverlay");
+const settingsModal = document.getElementById("settingsModal");
+
+// --- 検索状態（無限スクロール用） ---
+const state = {
+  query: "", page: 0, totalPages: 0,
+  loading: false, seen: new Set(), count: 0
+};
+
+let detailState = null;
+
+// --- 共通: TMDB APIリクエスト ---
+async function tmdbFetch(path, params = {}) {
+  const url = new URL(API_BASE + path);
+  url.searchParams.set("api_key", API_KEY);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+
+  let res;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    throw new Error("通信に失敗しました。ネット接続を確認してください。");
+  }
+  if (!res.ok) {
+    throw new Error("サーバーからエラーが返されました（" + res.status + "）。時間をおいて再度お試しください。");
+  }
+  return res.json();
+}
+
+function statusHTML(msg, isError = false, withSpinner = false) {
+  return '<div class="status' + (isError ? ' error' : '') + '">'
+    + (withSpinner ? '<div class="spinner"></div>' : '')
+    + msg + '</div>';
+}
+
+function posterURL(path, size) {
+  return path ? IMG_BASE + size + path : null;
+}
+
+// --- TMDBの生データ → 共通アイテム形式 ---
+function makeItem(raw, defaultType) {
+  const type = (raw.media_type === "movie" || raw.media_type === "tv")
+    ? raw.media_type : defaultType;
+  const title = raw.title || raw.name || "（タイトル不明）";
+  const dateStr = raw.release_date || raw.first_air_date || "";
+  return {
+    type,
+    id: raw.id,
+    title,
+    year: dateStr ? dateStr.slice(0, 4) : "—",
+    typeLabel: type === "movie" ? "映画" : "ドラマ",
+    poster: raw.poster_path
+  };
+}
+
+// ====================================================================
+//  ホーム
+// ====================================================================
+async function loadHome() {
+  goHomeView();
+  const hasFilter = myServices.size > 0;
+  const filterTag = hasFilter ? '<span class="filter-tag">マイサービス</span>' : "";
+
+  homeEl.innerHTML =
+    (favorites.size > 0 ? '<section class="row"><h2 class="row-title">♥ お気に入り</h2><div id="home-fav"></div></section>' : "")
+    + (hasFilter ? rowSkeleton("home-mine", "📌 あなたのサービスで見られる人気作") : "")
+    + rowSkeleton("home-trending-movie", "🔥 話題の映画")
+    + rowSkeleton("home-trending-tv", "📺 話題のドラマ")
+    + rowSkeleton("home-new", "🆕 最近サブスクに追加された映画")
+    + rowSkeleton("home-toprated", "⭐ 日本の名作・高評価")
+    + '<section class="row"><h2 class="row-title">🎬 カテゴリ別' + filterTag + '</h2>'
+    + '<div class="chips" id="cat-chips"></div>'
+    + '<div class="grid" id="cat-grid"></div></section>';
+
+  // お気に入り（保存済みデータからその場で描画・APIフェッチ不要）
+  if (favorites.size > 0) renderFavRail();
+
+  // マイサービスで見られる人気作（契約サービス設定時のみ）
+  if (hasFilter) {
+    loadRail("home-mine", "/discover/movie",
+      {
+        with_watch_providers: myServicesParam(),
+        watch_region: REGION,
+        sort_by: "popularity.desc",
+        "vote_count.gte": "30",
+        include_adult: "false"
+      },
+      "movie", true);
+  }
+
+  // 直近1年の期間（最近サブスク追加された映画の絞り込み用・将来も動くよう動的計算）
+  const today = new Date();
+  const oneYearAgo = new Date(today);
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+  const fmtDate = (d) => d.getFullYear() + "-"
+    + String(d.getMonth() + 1).padStart(2, "0") + "-"
+    + String(d.getDate()).padStart(2, "0");
+
+  // 各行は独立に読み込み（1つ失敗しても他は表示）
+  // 🔥 話題の映画＝直近で検索・閲覧が多い話題作（trending）
+  loadRail("home-trending-movie", "/trending/movie/week", {}, "movie", true);
+  // 📺 話題のドラマ
+  loadRail("home-trending-tv", "/trending/tv/week", {}, "tv", true);
+  // 🆕 最近サブスクに追加された映画＝直近1年公開 × 日本で見放題配信中 × 人気順
+  loadRail("home-new", "/discover/movie",
+    {
+      with_watch_monetization_types: "flatrate",
+      watch_region: REGION,
+      with_origin_country: "JP|US",
+      sort_by: "popularity.desc",
+      "release_date.gte": fmtDate(oneYearAgo),
+      "release_date.lte": fmtDate(today),
+      "vote_count.gte": "20",
+      include_adult: "false"
+    },
+    "movie", false);
+  // ⭐ 日本の名作・高評価（邦画）
+  loadRail("home-toprated", "/discover/movie",
+    { with_original_language: "ja", sort_by: "vote_average.desc", "vote_count.gte": "300", include_adult: "false" },
+    "movie", false);
+  loadCategories();
+}
+
+function rowSkeleton(id, title) {
+  return '<section class="row"><h2 class="row-title">' + title + '</h2>'
+    + '<div id="' + id + '"><div class="status"><div class="spinner sm"></div></div></div></section>';
+}
+
+async function loadRail(containerId, path, params, defaultType, ranked) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  try {
+    const data = await tmdbFetch(path, Object.assign({ language: LANG, region: REGION }, params));
+    const items = (data.results || [])
+      .filter(r => r.media_type !== "person")
+      .map(r => makeItem(r, defaultType))
+      .filter(it => it.id);
+
+    if (items.length === 0) {
+      box.innerHTML = statusHTML("情報を取得できませんでした。", false);
+      return;
+    }
+
+    const rail = document.createElement("div");
+    rail.className = "rail";
+    items.forEach((it, i) => rail.appendChild(railCardEl(it, ranked ? i + 1 : 0)));
+    box.innerHTML = "";
+    box.appendChild(rail);
+  } catch (e) {
+    box.innerHTML = statusHTML("読み込みに失敗しました。", true);
+  }
+}
+
+function railCardEl(it, rank) {
+  const poster = posterURL(it.poster, "w185");
+  const posterEl = poster
+    ? '<img class="rail-poster" loading="lazy" src="' + poster + '" alt="">'
+    : '<div class="rail-poster placeholder">画像なし</div>';
+  const rankEl = rank ? '<span class="rail-rank">' + rank + '位</span>' : '';
+
+  const card = document.createElement("div");
+  card.className = "rail-card";
+  card.innerHTML = posterEl
+    + '<p class="rail-title">' + rankEl + escapeHTML(it.title) + '</p>';
+  card.addEventListener("click", () => openDetail(it.type, it.id));
+  return card;
+}
+
+// --- カテゴリ別 ---
+let catLoading = false;
+async function loadCategories() {
+  const chipsBox = document.getElementById("cat-chips");
+  const catGrid = document.getElementById("cat-grid");
+  if (!chipsBox || !catGrid) return;
+
+  let genres;
+  try {
+    const data = await tmdbFetch("/genre/movie/list", { language: LANG });
+    genres = data.genres || [];
+  } catch (e) {
+    chipsBox.innerHTML = "";
+    catGrid.innerHTML = statusHTML("カテゴリ情報の取得に失敗しました。", true);
+    return;
+  }
+  if (genres.length === 0) {
+    catGrid.innerHTML = statusHTML("カテゴリ情報がありません。", true);
+    return;
+  }
+
+  chipsBox.innerHTML = "";
+  genres.forEach((g, i) => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (i === 0 ? " active" : "");
+    chip.textContent = g.name;
+    chip.dataset.id = g.id;
+    chip.addEventListener("click", () => {
+      chipsBox.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      loadGenre(g.id);
+    });
+    chipsBox.appendChild(chip);
+  });
+
+  loadGenre(genres[0].id); // 先頭ジャンルを初期表示
+}
+
+async function loadGenre(genreId) {
+  const catGrid = document.getElementById("cat-grid");
+  if (!catGrid) return;
+  if (catLoading) return;
+  catLoading = true;
+  catGrid.innerHTML = statusHTML("読み込み中…", false, true);
+
+  try {
+    const params = {
+      language: LANG,
+      region: REGION,
+      with_genres: String(genreId),
+      sort_by: "popularity.desc",
+      include_adult: "false",
+      watch_region: REGION,
+      with_watch_monetization_types: "flatrate", // 日本で見放題配信中
+      with_origin_country: "JP|US",              // 邦画＋ハリウッド（外国語ローカル作品を排除）
+      "vote_count.gte": "80",
+      page: "1"
+    };
+    // マイサービス設定時はそのサービスで見られる作品に絞る
+    if (myServices.size > 0) params.with_watch_providers = myServicesParam();
+    const data = await tmdbFetch("/discover/movie", params);
+    const items = (data.results || []).map(r => makeItem(r, "movie")).filter(it => it.id);
+
+    if (items.length === 0) {
+      catGrid.innerHTML = statusHTML("このカテゴリの作品が見つかりませんでした。", true);
+      return;
+    }
+    catGrid.innerHTML = "";
+    items.forEach(it => catGrid.appendChild(gridCardEl(it)));
+  } catch (e) {
+    catGrid.innerHTML = statusHTML("カテゴリの読み込みに失敗しました。", true);
+  } finally {
+    catLoading = false;
+  }
+}
+
+// --- グリッド用カード（検索／カテゴリ共用） ---
+function gridCardEl(it) {
+  const poster = posterURL(it.poster, "w342");
+  const posterEl = poster
+    ? '<img class="poster" loading="lazy" src="' + poster + '" alt="">'
+    : '<div class="poster placeholder">画像なし</div>';
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = posterEl
+    + '<div class="card-body">'
+    + '<p class="card-title">' + escapeHTML(it.title) + '</p>'
+    + '<p class="card-meta">' + it.year + '<span class="badge">' + it.typeLabel + '</span></p>'
+    + '</div>';
+  card.addEventListener("click", () => openDetail(it.type, it.id));
+  return card;
+}
+
+// ====================================================================
+//  検索
+// ====================================================================
+async function doSearch() {
+  const query = qInput.value.trim();
+  if (!query) {
+    loadHome(); // 空検索ならホームへ
+    return;
+  }
+
+  homeEl.style.display = "none";
+  favview.style.display = "none";
+  state.query = query;
+  state.page = 0;
+  state.totalPages = 0;
+  state.loading = false;
+  state.seen = new Set();
+  state.count = 0;
+  grid.innerHTML = "";
+  loadmore.innerHTML = "";
+  gridWrap.style.display = "none";
+  showStatus("検索中…", false, true);
+
+  await loadNextPage(true);
+}
+
+async function loadNextPage(isFirst = false) {
+  if (state.loading) return;
+  if (!isFirst && state.totalPages && state.page >= state.totalPages) return;
+
+  state.loading = true;
+  searchBtn.disabled = true;
+  if (!isFirst) loadmore.innerHTML = '<div class="spinner sm"></div>';
+
+  const nextPage = state.page + 1;
+  try {
+    const data = await tmdbFetch("/search/multi", {
+      language: LANG,
+      query: state.query,
+      include_adult: "false",
+      region: REGION,
+      page: String(nextPage)
+    });
+
+    state.page = data.page || nextPage;
+    state.totalPages = data.total_pages || 0;
+
+    const items = (data.results || [])
+      .filter(r => r.media_type === "movie" || r.media_type === "tv");
+
+    if (isFirst && items.length === 0 && state.count === 0) {
+      showStatus("「" + escapeHTML(state.query) + "」に一致する作品が見つかりませんでした。別のキーワードでお試しください。", true);
+      return;
+    }
+
+    if (isFirst) {
+      results.innerHTML = "";
+      gridWrap.style.display = "block";
+    }
+
+    appendResults(items);
+    updateLoadMore();
+  } catch (e) {
+    if (isFirst) {
+      showStatus(e.message || "検索中にエラーが発生しました。", true);
+    } else {
+      loadmore.innerHTML = '<div class="loadmore" style="color:var(--danger)">追加読み込みに失敗しました。スクロールで再試行します。</div>';
+      state.page = nextPage - 1;
+    }
+  } finally {
+    state.loading = false;
+    searchBtn.disabled = false;
+  }
+}
+
+function updateLoadMore() {
+  if (state.totalPages && state.page >= state.totalPages) {
+    loadmore.innerHTML = '<div class="loadmore end">— すべての結果を表示しました（' + state.count + '件） —</div>';
+  } else {
+    loadmore.innerHTML = "";
+  }
+}
+
+function showStatus(msg, isError = false, withSpinner = false) {
+  gridWrap.style.display = "none";
+  results.innerHTML = statusHTML(msg, isError, withSpinner);
+}
+
+function appendResults(items) {
+  const frag = document.createDocumentFragment();
+  items.forEach(raw => {
+    const key = raw.media_type + ":" + raw.id;
+    if (state.seen.has(key)) return;
+    state.seen.add(key);
+    frag.appendChild(gridCardEl(makeItem(raw, raw.media_type)));
+    state.count++;
+  });
+  grid.appendChild(frag);
+}
+
+// --- 無限スクロール監視 ---
+const observer = new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting && gridWrap.style.display !== "none") {
+    loadNextPage(false);
+  }
+}, { rootMargin: "400px" });
+observer.observe(sentinel);
+
+// ====================================================================
+//  詳細＋配信サービス
+// ====================================================================
+async function openDetail(type, id) {
+  overlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+  modal.innerHTML = statusHTML("読み込み中…", false, true);
+
+  modal.scrollTop = 0;
+  try {
+    const [detail, providers] = await Promise.all([
+      tmdbFetch("/" + type + "/" + id, { language: LANG, append_to_response: "videos,credits,recommendations" }),
+      tmdbFetch("/" + type + "/" + id + "/watch/providers")
+    ]);
+
+    // 共有用にURLを更新（戻る/シェアで使う）
+    setUrlForDetail(type, id);
+
+    const jp = (providers.results && providers.results.JP) || {};
+    // 同一サービスの重複（広告つき/なし等）をまとめる
+    ["flatrate", "rent", "buy"].forEach(k => {
+      if (jp[k]) jp[k] = dedupeProviders(jp[k]);
+    });
+    detailState = { type, detail, jp, link: jp.link || null, activeTab: pickDefaultTab(jp) };
+    renderDetail();
+  } catch (e) {
+    modal.innerHTML =
+      '<div class="modal-header"><div class="modal-info"><h2>エラー</h2></div>'
+      + '<button class="closeBtn" id="closeBtn">×</button></div>'
+      + statusHTML(e.message || "情報の取得に失敗しました。", true);
+    bindClose();
+  }
+}
+
+function pickDefaultTab(jp) {
+  if ((jp.flatrate || []).length) return "flatrate";
+  if ((jp.rent || []).length) return "rent";
+  if ((jp.buy || []).length) return "buy";
+  return "flatrate";
+}
+
+const TAB_DEFS = [
+  { key: "flatrate", label: "見放題" },
+  { key: "rent", label: "レンタル" },
+  { key: "buy", label: "購入" }
+];
+
+// 配信サービスごとの「作品検索URL」。
+// TMDB APIは各サービスの作品ページ直リンクを提供しないため、
+// 確実に動作する主要サービスは "サービス内でその作品名を検索" するURLへ直接遷移し、
+// 未対応サービスは JustWatch(link) にフォールバックする。
+// キーは TMDB の provider_id。値は エンコード済みタイトル(t) を受け取る関数。
+const PROVIDER_SEARCH = {
+  8:    t => "https://www.netflix.com/search?q=" + t,                 // Netflix
+  1796: t => "https://www.netflix.com/search?q=" + t,                 // Netflix (広告つき)
+  9:    t => "https://www.amazon.co.jp/s?k=" + t + "&i=instant-video", // Amazon Prime Video
+  2100: t => "https://www.amazon.co.jp/s?k=" + t + "&i=instant-video", // Amazon Prime Video (広告つき)
+  10:   t => "https://www.amazon.co.jp/s?k=" + t + "&i=instant-video", // Amazon Video (レンタル/購入)
+  337:  t => "https://www.disneyplus.com/ja-jp/search?q=" + t,         // Disney+
+  84:   t => "https://video.unext.jp/freeword?query=" + t,            // U-NEXT
+  2284: t => "https://video.unext.jp/freeword?query=" + t,            // HBO Max on U-NEXT
+  2:    t => "https://tv.apple.com/jp/search?term=" + t,              // Apple TV
+  350:  t => "https://tv.apple.com/jp/search?term=" + t,              // Apple TV+
+  3:    t => "https://play.google.com/store/search?q=" + t + "&c=movies", // Google Play
+  15:   t => "https://www.hulu.jp/search?q=" + t,                    // Hulu (日本)
+  2683: t => "https://fod.fujitv.co.jp/search/?searchWord=" + t      // FOD
+};
+
+// TMDB(JustWatch)の配信データに載らないが日本で人気のサービス。
+// 配信中かは判定できないため「作品名で検索する」リンクとして常設する。
+// ※各サービスの検索URL形式は非公開で変わる可能性あり（ベストエフォート）。
+const EXTRA_SERVICES = [
+  { name: "DMM TV",       url: t => "https://tv.dmm.com/vod/list/?keyword=" + t },
+  { name: "ABEMA",        url: t => "https://abema.tv/search?q=" + t },
+  { name: "Lemino",       url: t => "https://lemino.docomo.ne.jp/search?query=" + t },
+  { name: "dアニメストア", url: t => "https://animestore.docomo.ne.jp/animestore/CF/search_index?searchKey=" + t },
+  { name: "WOWOWオンデマンド", url: t => "https://wod.wowow.co.jp/search?keyword=" + t },
+  { name: "Telasa",       url: t => "https://www.telasa.jp/search?keyword=" + t }
+];
+
+// 同一ブランドの「広告つきプラン」などを1つにまとめるためのブランド名抽出
+function brandName(name) {
+  return name
+    .replace(/\s*Standard with Ads/i, "")
+    .replace(/\s*with Ads/i, "")
+    .replace(/\s*Amazon Channel/i, "")
+    .trim();
+}
+
+// 同じサービスが複数（広告つき/なし等）並ぶのを排除。広告なし版を優先して残す。
+function dedupeProviders(list) {
+  const byBrand = new Map();
+  for (const p of list) {
+    const brand = brandName(p.provider_name);
+    const isAds = /with ads/i.test(p.provider_name);
+    const existing = byBrand.get(brand);
+    if (!existing) {
+      byBrand.set(brand, p);
+    } else if (/with ads/i.test(existing.provider_name) && !isAds) {
+      byBrand.set(brand, p); // 既存が広告つきで、こちらが広告なしなら置き換え
+    }
+  }
+  return Array.from(byBrand.values());
+}
+
+// 配信先URLとラベルを決定。直リンク可能なら {url, direct:true}、
+// 不可なら JustWatch(fallback) を {url, direct:false}、どちらも無ければ null。
+function resolveProviderLink(providerId, rawTitle, fallback) {
+  const build = PROVIDER_SEARCH[providerId];
+  if (build) return { url: build(encodeURIComponent(rawTitle)), direct: true };
+  if (fallback) return { url: fallback, direct: false };
+  return null;
+}
+
+function renderDetail() {
+  const { type, detail, jp, link, activeTab } = detailState;
+  const favOn = isFav(type, detail.id);
+  const isMovie = type === "movie";
+  const title = isMovie ? (detail.title || detail.name) : (detail.name || detail.title);
+  const dateStr = isMovie ? detail.release_date : detail.first_air_date;
+  const year = dateStr ? dateStr.slice(0, 4) : "—";
+  const typeLabel = isMovie ? "映画" : "ドラマ";
+  const poster = posterURL(detail.poster_path, "w342");
+  const overview = detail.overview && detail.overview.trim()
+    ? escapeHTML(detail.overview) : "あらすじ情報がありません。";
+
+  const posterEl = poster
+    ? '<img class="modal-poster" src="' + poster + '" alt="">'
+    : '<div class="modal-poster"></div>';
+
+  const hasAny = TAB_DEFS.some(t => (jp[t.key] || []).length > 0);
+  const tabsHTML = hasAny
+    ? '<div class="tabs">' + TAB_DEFS.map(t => {
+        const n = (jp[t.key] || []).length;
+        return '<button class="tab' + (t.key === activeTab ? ' active' : '')
+          + '" data-tab="' + t.key + '"' + (n === 0 ? ' style="opacity:0.4"' : '') + '>'
+          + t.label + (n ? '<span class="count">' + n + '</span>' : '') + '</button>';
+      }).join("") + '</div>'
+    : "";
+
+  const list = jp[activeTab] || [];
+  let providersHTML;
+  if (list.length > 0) {
+    const cells = list.map(p => {
+      const logo = posterURL(p.logo_path, "w92");
+      const logoEl = logo ? '<img src="' + logo + '" alt="">' : '';
+
+      const dest = resolveProviderLink(p.provider_id, title, link);
+      let tag = "div", href = "", arrow = "";
+      if (dest) {
+        tag = "a";
+        href = ' href="' + escapeHTML(dest.url) + '" target="_blank" rel="noopener"';
+        arrow = dest.direct
+          ? '<span class="arrow">' + escapeHTML(p.provider_name) + 'で見る ›</span>'
+          : '<span class="arrow">配信ページへ ›</span>';
+      }
+      return '<' + tag + ' class="provider"' + href + '>'
+        + logoEl + '<span>' + escapeHTML(p.provider_name) + '</span>' + arrow + '</' + tag + '>';
+    }).join("");
+    providersHTML = '<div class="providers">' + cells + '</div>';
+  } else {
+    const tabLabel = (TAB_DEFS.find(t => t.key === activeTab) || {}).label || "";
+    providersHTML = statusHTML("この作品は、日本の「" + tabLabel + "」での配信情報が見つかりませんでした。", true);
+  }
+
+  const sectionBody = hasAny
+    ? tabsHTML + providersHTML
+    : statusHTML("この作品は、日本での配信情報（見放題・レンタル・購入）が見つかりませんでした。", true);
+
+  // TMDBに配信データが無いサービス（DMM TV等）の検索リンク
+  const encTitle = encodeURIComponent(title);
+  const extraHTML =
+    '<p class="extra-label">📍 その他のサービスで探す</p>'
+    + '<p class="extra-note">TMDBに配信情報が無いサービスです。作品名で検索します。</p>'
+    + '<div class="extra-links">'
+    + EXTRA_SERVICES.map(s =>
+        '<a class="extra-link" href="' + escapeHTML(s.url(encTitle))
+        + '" target="_blank" rel="noopener">' + escapeHTML(s.name) + 'で探す ›</a>'
+      ).join("")
+    + '</div>';
+
+  // 評価・上映時間・ジャンル
+  const ratingHTML = detail.vote_average
+    ? '<span><span class="star">★</span> ' + detail.vote_average.toFixed(1) + '</span>' : '';
+  const runtime = isMovie ? detail.runtime : ((detail.episode_run_time || [])[0]);
+  const runtimeHTML = runtime ? '<span>' + runtime + '分</span>' : '';
+  const metaHTML = '<div class="modal-meta">' + ratingHTML
+    + '<span>' + year + '</span><span>' + typeLabel + '</span>' + runtimeHTML + '</div>';
+  const genresHTML = (detail.genres && detail.genres.length)
+    ? '<div class="genre-tags">' + detail.genres.slice(0, 4)
+        .map(g => '<span class="genre-tag">' + escapeHTML(g.name) + '</span>').join("") + '</div>'
+    : '';
+
+  // 予告編（YouTube）
+  const trailer = pickTrailer(detail.videos);
+  const trailerHTML = trailer
+    ? '<div class="trailer"><iframe src="https://www.youtube.com/embed/' + trailer.key
+      + '" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>'
+    : '';
+
+  // 出演者
+  const cast = ((detail.credits && detail.credits.cast) || []).slice(0, 10);
+  const castHTML = cast.length
+    ? '<p class="sub-label">出演者</p><div class="cast-rail">' + cast.map(c => {
+        const img = c.profile_path
+          ? '<img loading="lazy" src="' + IMG_BASE + 'w185' + c.profile_path + '" alt="">'
+          : '<div class="noimg">No Image</div>';
+        return '<div class="cast">' + img + '<p class="nm">' + escapeHTML(c.name) + '</p>'
+          + (c.character ? '<p class="ch">' + escapeHTML(c.character) + '</p>' : '') + '</div>';
+      }).join("") + '</div>'
+    : '';
+
+  // 似た作品
+  const recs = (((detail.recommendations && detail.recommendations.results) || []))
+    .map(r => makeItem(r, type)).filter(it => it.id && it.poster).slice(0, 15);
+  const recsHTML = recs.length
+    ? '<p class="sub-label">こんな作品も</p><div class="rail">' + recs.map(it => {
+        const p = posterURL(it.poster, "w185");
+        return '<div class="rail-card" data-type="' + it.type + '" data-id="' + it.id + '">'
+          + '<img class="rail-poster" loading="lazy" src="' + p + '" alt="">'
+          + '<p class="rail-title">' + escapeHTML(it.title) + '</p></div>';
+      }).join("") + '</div>'
+    : '';
+
+  modal.innerHTML =
+    '<div class="modal-header">' + posterEl
+    + '<div class="modal-info"><h2>' + escapeHTML(title) + '</h2>'
+    + metaHTML + genresHTML
+    + '<p class="overview">' + overview + '</p></div>'
+    + '<button class="closeBtn" id="closeBtn">×</button></div>'
+    + '<div class="modal-section">'
+    + '<div class="action-row">'
+    + '<button class="action-btn fav' + (favOn ? ' on' : '') + '" id="favToggle">'
+    + (favOn ? '♥ お気に入り済み' : '♡ お気に入り') + '</button>'
+    + '<button class="action-btn" id="shareBtn">🔗 シェア</button>'
+    + '</div>'
+    + trailerHTML + sectionBody + extraHTML + castHTML + recsHTML
+    + '</div>'
+    + '<p class="tmdb-note">ロゴをタップすると各サービスで作品名を検索して開きます<br>配信情報の提供：JustWatch / The Movie Database (TMDB)</p>';
+
+  modal.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      detailState.activeTab = btn.dataset.tab;
+      renderDetail();
+    });
+  });
+  // 似た作品 → モーダル内で作品を切り替え
+  modal.querySelectorAll(".rail-card[data-id]").forEach(c => {
+    c.addEventListener("click", () => openDetail(c.dataset.type, c.dataset.id));
+  });
+  // シェア
+  const sb = document.getElementById("shareBtn");
+  if (sb) sb.addEventListener("click", shareDetail);
+  // お気に入りトグル
+  const ft = document.getElementById("favToggle");
+  if (ft) ft.addEventListener("click", () => {
+    const now = toggleFav(favItemFromDetail(type, detail));
+    ft.classList.toggle("on", now);
+    ft.textContent = now ? "♥ お気に入り済み" : "♡ お気に入り";
+    showToast(now ? "お気に入りに追加しました" : "お気に入りから削除しました");
+    if (favview.style.display === "block") showFavoritesView();
+  });
+  bindClose();
+}
+
+function bindClose() {
+  const btn = document.getElementById("closeBtn");
+  if (btn) btn.addEventListener("click", closeModal);
+}
+
+function closeModal() {
+  overlay.classList.remove("open");
+  document.body.style.overflow = "";
+  modal.innerHTML = "";
+  detailState = null;
+  clearUrlDetail();
+}
+
+overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+
+// --- 予告編抽出 ---
+function pickTrailer(videos) {
+  const list = (videos && videos.results) || [];
+  const yt = list.filter(v => v.site === "YouTube");
+  return yt.find(v => v.type === "Trailer") || yt.find(v => v.type === "Teaser") || yt[0] || null;
+}
+
+// --- シェア（作品ごとのURL） ---
+function shareUrl(type, id) {
+  return location.origin + location.pathname + "?t=" + type + "&id=" + id;
+}
+async function shareDetail() {
+  if (!detailState) return;
+  const { type, detail } = detailState;
+  const title = detail.title || detail.name || "";
+  const url = shareUrl(type, detail.id);
+  const text = "『" + title + "』はどこで見られる？";
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url }); } catch (e) {}
+  } else {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("リンクをコピーしました");
+    } catch (e) {
+      window.prompt("このリンクをコピーしてください", url);
+    }
+  }
+}
+
+// --- ディープリンク（URLパラメータで作品を直接開く） ---
+function setUrlForDetail(type, id) {
+  try { history.replaceState(null, "", "?t=" + type + "&id=" + id); } catch (e) {}
+}
+function clearUrlDetail() {
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+}
+function openFromUrl() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("t"), id = p.get("id");
+    if ((t === "movie" || t === "tv") && id) openDetail(t, id);
+  } catch (e) {}
+}
+
+// --- トースト通知 ---
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+// --- マイサービス（契約中サービスで絞り込み） ---
+const MY_SERVICE_OPTIONS = [
+  { id: 8, name: "Netflix" },
+  { id: 9, name: "Amazon Prime Video" },
+  { id: 84, name: "U-NEXT" },
+  { id: 337, name: "Disney+" },
+  { id: 15, name: "Hulu" },
+  { id: 350, name: "Apple TV+" }
+];
+let myServices = loadMyServices();
+function loadMyServices() {
+  try { return new Set(JSON.parse(localStorage.getItem("myServices") || "[]")); }
+  catch (e) { return new Set(); }
+}
+function saveMyServices() {
+  try { localStorage.setItem("myServices", JSON.stringify(Array.from(myServices))); } catch (e) {}
+}
+function myServicesParam() {
+  return Array.from(myServices).join("|");
+}
+function openSettings() {
+  const items = MY_SERVICE_OPTIONS.map(s =>
+    '<label class="set-item"><input type="checkbox" value="' + s.id + '"'
+    + (myServices.has(s.id) ? " checked" : "") + '>'
+    + '<span class="nm">' + escapeHTML(s.name) + '</span></label>'
+  ).join("");
+  settingsModal.innerHTML =
+    '<div class="modal-header"><div class="modal-info"><h2>マイサービス設定</h2></div>'
+    + '<button class="closeBtn" id="setClose">×</button></div>'
+    + '<div class="modal-section">'
+    + '<p class="set-intro">契約中のサービスを選ぶと、ホームやカテゴリで「そのサービスで見られる作品」が表示されます。</p>'
+    + items
+    + '<button class="set-save" id="setSave">保存する</button></div>';
+  settingsOverlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+  document.getElementById("setClose").addEventListener("click", closeSettings);
+  document.getElementById("setSave").addEventListener("click", () => {
+    myServices = new Set(
+      Array.from(settingsModal.querySelectorAll("input:checked")).map(i => Number(i.value))
+    );
+    saveMyServices();
+    closeSettings();
+    loadHome();
+  });
+}
+function closeSettings() {
+  settingsOverlay.classList.remove("open");
+  document.body.style.overflow = "";
+  settingsModal.innerHTML = "";
+}
+
+// ====================================================================
+//  お気に入り（localStorage）
+// ====================================================================
+function loadFavorites() {
+  try {
+    const arr = JSON.parse(localStorage.getItem("favorites") || "[]");
+    const m = new Map();
+    arr.forEach(it => { if (it && it.type && it.id) m.set(it.type + ":" + it.id, it); });
+    return m;
+  } catch (e) { return new Map(); }
+}
+let favorites = loadFavorites();
+
+function saveFavorites() {
+  try { localStorage.setItem("favorites", JSON.stringify(Array.from(favorites.values()))); } catch (e) {}
+}
+function favKey(type, id) { return type + ":" + id; }
+function isFav(type, id) { return favorites.has(favKey(type, id)); }
+
+function toggleFav(item) {
+  const k = favKey(item.type, item.id);
+  if (favorites.has(k)) favorites.delete(k);
+  else favorites.set(k, item);
+  saveFavorites();
+  updateFavBtn();
+  return favorites.has(k);
+}
+
+function updateFavBtn() {
+  const n = favorites.size;
+  favBtn.classList.toggle("has", n > 0);
+  favBtn.innerHTML = (n > 0 ? "♥" : "♡")
+    + (n > 0 ? '<span class="fav-count">' + (n > 99 ? "99+" : n) + '</span>' : "");
+}
+
+// 詳細データ → グリッド/レール共通のアイテム形式（保存用）
+function favItemFromDetail(type, detail) {
+  const isMovie = type === "movie";
+  const title = isMovie ? (detail.title || detail.name) : (detail.name || detail.title);
+  const dateStr = isMovie ? detail.release_date : detail.first_air_date;
+  return {
+    type,
+    id: detail.id,
+    title: title || "（タイトル不明）",
+    year: dateStr ? dateStr.slice(0, 4) : "—",
+    typeLabel: isMovie ? "映画" : "ドラマ",
+    poster: detail.poster_path || null
+  };
+}
+
+// ホーム最上段のお気に入りレール（保存データから直接描画）
+function renderFavRail() {
+  const box = document.getElementById("home-fav");
+  if (!box) return;
+  const items = Array.from(favorites.values()).reverse(); // 追加が新しい順
+  const rail = document.createElement("div");
+  rail.className = "rail";
+  items.forEach(it => rail.appendChild(railCardEl(it, 0)));
+  box.innerHTML = "";
+  box.appendChild(rail);
+}
+
+// お気に入り一覧ビュー
+function showFavoritesView() {
+  homeEl.style.display = "none";
+  gridWrap.style.display = "none";
+  results.innerHTML = "";
+  qInput.value = "";
+  favview.style.display = "block";
+  window.scrollTo(0, 0);
+
+  const items = Array.from(favorites.values()).reverse();
+  if (items.length === 0) {
+    favview.innerHTML = '<section class="row"><h2 class="row-title">♥ お気に入り</h2>'
+      + statusHTML("まだお気に入りがありません。<br>作品の詳細画面で「♡ お気に入り」を押すと、ここに保存されます。")
+      + '</section>';
+    return;
+  }
+  favview.innerHTML = '<section class="row"><h2 class="row-title">♥ お気に入り'
+    + '<span class="filter-tag">' + items.length + '件</span></h2>'
+    + '<div class="grid" id="fav-grid"></div></section>';
+  const g = document.getElementById("fav-grid");
+  items.forEach(it => g.appendChild(gridCardEl(it)));
+}
+
+// --- ホーム表示へ切替 ---
+function goHomeView() {
+  gridWrap.style.display = "none";
+  results.innerHTML = "";
+  favview.style.display = "none";
+  homeEl.style.display = "block";
+}
+
+// --- ユーティリティ ---
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// --- イベント ---
+searchBtn.addEventListener("click", doSearch);
+qInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
+homeLink.addEventListener("click", () => { qInput.value = ""; loadHome(); });
+settingsBtn.addEventListener("click", openSettings);
+settingsOverlay.addEventListener("click", (e) => { if (e.target === settingsOverlay) closeSettings(); });
+favBtn.addEventListener("click", showFavoritesView);
+
+// 初期表示＝ホーム。URLに作品指定があればその詳細を開く
+updateFavBtn();
+loadHome();
+openFromUrl();
+</script>
+</body>
+</html>
