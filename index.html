@@ -250,7 +250,12 @@
   /* ===== モーダル ===== */
   .modal-overlay {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;       /* 非対応ブラウザ用フォールバック */
+    height: 100dvh;      /* URLバーを除いた実表示領域に追従 */
     background: rgba(0,0,0,0.6);
     display: none;
     align-items: flex-end;
@@ -262,7 +267,8 @@
     background: var(--bg);
     width: 100%;
     max-width: 560px;
-    max-height: 88vh;
+    max-height: 88vh;    /* 非対応ブラウザ用フォールバック */
+    max-height: 88dvh;   /* URLバーを除いた実表示領域基準 */
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
