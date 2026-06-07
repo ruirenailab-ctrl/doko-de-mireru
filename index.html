@@ -264,9 +264,19 @@
     max-width: 560px;
     max-height: 88vh;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     border-radius: 20px 20px 0 0;
     border-top: 1px solid #2a2f3a;
     animation: slideUp 0.25s ease;
+  }
+
+  /* ×ボタンを常時表示（スクロールしても上部に固定） */
+  .modal-sticky {
+    position: sticky;
+    top: 0;
+    height: 0;
+    z-index: 6;
   }
   @keyframes slideUp { from { transform: translateY(40px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
   .modal-header {
@@ -937,7 +947,7 @@ observer.observe(sentinel);
 // ====================================================================
 async function openDetail(type, id) {
   overlay.classList.add("open");
-  document.body.style.overflow = "hidden";
+  lockScroll();
   modal.innerHTML = statusHTML("読み込み中…", false, true);
 
   modal.scrollTop = 0;
@@ -1154,11 +1164,11 @@ function renderDetail() {
     : '';
 
   modal.innerHTML =
-    '<div class="modal-header">' + posterEl
+    '<div class="modal-sticky"><button class="closeBtn" id="closeBtn">×</button></div>'
+    + '<div class="modal-header">' + posterEl
     + '<div class="modal-info"><h2>' + escapeHTML(title) + '</h2>'
     + metaHTML + genresHTML
-    + '<p class="overview">' + overview + '</p></div>'
-    + '<button class="closeBtn" id="closeBtn">×</button></div>'
+    + '<p class="overview">' + overview + '</p></div></div>'
     + '<div class="modal-section">'
     + '<div class="action-row">'
     + '<button class="action-btn fav' + (favOn ? ' on' : '') + '" id="favToggle">'
@@ -1199,10 +1209,36 @@ function bindClose() {
   if (btn) btn.addEventListener("click", closeModal);
 }
 
+// iOS Safariでも確実に効く背景スクロールロック。
+// body{overflow:hidden}はiOSで効かずモーダル内スクロールが元位置に戻されるため、
+// bodyをposition:fixedで固定し、解除時に元のスクロール位置へ復元する。
+let scrollLockY = 0;
+let scrollLocked = false;
+function lockScroll() {
+  if (scrollLocked) return;
+  scrollLocked = true;
+  scrollLockY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.position = "fixed";
+  document.body.style.top = "-" + scrollLockY + "px";
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+}
+function unlockScroll() {
+  if (!scrollLocked) return;
+  scrollLocked = false;
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  window.scrollTo(0, scrollLockY);
+}
+
 // モーダルのDOMを閉じるだけ（履歴は触らない・popstateから呼ばれる）
 function closeModalUI() {
   overlay.classList.remove("open");
-  document.body.style.overflow = "";
+  unlockScroll();
   modal.innerHTML = "";
   detailState = null;
 }
@@ -1370,7 +1406,7 @@ function openSettings() {
     + items
     + '<button class="set-save" id="setSave">保存する</button></div>';
   settingsOverlay.classList.add("open");
-  document.body.style.overflow = "hidden";
+  lockScroll();
   document.getElementById("setClose").addEventListener("click", closeSettings);
   document.getElementById("setSave").addEventListener("click", () => {
     myServices = new Set(
@@ -1383,7 +1419,7 @@ function openSettings() {
 }
 function closeSettings() {
   settingsOverlay.classList.remove("open");
-  document.body.style.overflow = "";
+  unlockScroll();
   settingsModal.innerHTML = "";
 }
 
