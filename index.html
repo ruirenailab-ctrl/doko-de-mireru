@@ -1052,9 +1052,11 @@ async function openDetail(type, id) {
 
     const jp = (providers.results && providers.results.JP) || {};
     // 同一サービスの重複（広告つき/なし等）をまとめる
-    ["flatrate", "rent", "buy"].forEach(k => {
+    ["flatrate", "rent", "buy", "free", "ads"].forEach(k => {
       if (jp[k]) jp[k] = dedupeProviders(jp[k]);
     });
+    // 「無料」（完全無料＋広告つき無料）を1タブに集約
+    jp.freeAll = dedupeProviders([].concat(jp.free || [], jp.ads || []));
     detailState = { type, detail, jp, link: jp.link || null, activeTab: pickDefaultTab(jp) };
     recordRecent(favItemFromDetail(type, detail)); // 閲覧履歴に記録（トラフィック）
     renderDetail();
@@ -1069,6 +1071,7 @@ async function openDetail(type, id) {
 
 function pickDefaultTab(jp) {
   if ((jp.flatrate || []).length) return "flatrate";
+  if ((jp.freeAll || []).length) return "freeAll";
   if ((jp.rent || []).length) return "rent";
   if ((jp.buy || []).length) return "buy";
   return "flatrate";
@@ -1076,6 +1079,7 @@ function pickDefaultTab(jp) {
 
 const TAB_DEFS = [
   { key: "flatrate", label: "見放題" },
+  { key: "freeAll", label: "無料" },
   { key: "rent", label: "レンタル" },
   { key: "buy", label: "購入" }
 ];
