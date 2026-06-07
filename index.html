@@ -755,6 +755,8 @@ async function renderHome() {
     + (favorites.size > 0 ? '<section class="row"><h2 class="row-title">♥ お気に入り</h2><div id="home-fav"></div></section>' : "")
     + '<section class="row" id="sec-netflix"><h2 class="row-title">🔴 Netflix 今週の映画TOP10（日本）</h2>'
     + '<div id="home-netflix"><div class="status"><div class="spinner sm"></div></div></div></section>'
+    + '<section class="row" id="sec-netflix-tv"><h2 class="row-title">🔴 Netflix 今週のドラマTOP10（日本）</h2>'
+    + '<div id="home-netflix-tv"><div class="status"><div class="spinner sm"></div></div></div></section>'
     + (hasFilter ? rowSkeleton("home-mine", "📌 あなたのサービスで見られる人気作", "mine") : "")
     + rowSkeleton("home-trending-movie", "🔥 今週話題の映画", "trendMovie")
     + rowSkeleton("home-trending-tv", "📺 今週話題のドラマ", "trendTv")
@@ -1216,7 +1218,8 @@ async function openDetail(type, id) {
     jp.freeAll = dedupeProviders([].concat(jp.free || [], jp.ads || []));
     // Netflix公式Top10で配信確認済みの作品は、TMDBにNetflixが無くても見放題に補完
     // （JustWatch由来データの遅延対策。Netflix自身のランキング＝配信中が確定）
-    if (type === "movie" && netflixMovieIds.has(detail.id)) {
+    if ((type === "movie" && netflixMovieIds.has(detail.id))
+        || (type === "tv" && netflixTvIds.has(detail.id))) {
       jp.flatrate = jp.flatrate || [];
       if (!jp.flatrate.some(p => p.provider_id === 8)) {
         jp.flatrate.unshift({ provider_id: 8, provider_name: "Netflix", logo_path: NETFLIX_LOGO });
@@ -1863,6 +1866,7 @@ function recordRecent(item) {
 // TMDBにNetflixが無い作品の見放題補完にも使う（JustWatchのデータ遅延対策）。
 const NETFLIX_LOGO = "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg";
 let netflixMovieIds = new Set();
+let netflixTvIds = new Set();
 let _netflixData = null;
 function loadNetflixData() {
   if (!_netflixData) {
@@ -1870,34 +1874,35 @@ function loadNetflixData() {
       .then(r => r.ok ? r.json() : null)
       .catch(() => null)
       .then(data => {
-        if (data && Array.isArray(data.films)) {
-          data.films.forEach(f => { if (f.id) netflixMovieIds.add(f.id); });
-        }
+        if (data && Array.isArray(data.films)) data.films.forEach(f => { if (f.id) netflixMovieIds.add(f.id); });
+        if (data && Array.isArray(data.tv)) data.tv.forEach(f => { if (f.id) netflixTvIds.add(f.id); });
         return data;
       });
   }
   return _netflixData;
 }
 
-async function renderNetflixRail() {
-  const box = document.getElementById("home-netflix");
+// 1レール分を描画（データ無ければそのセクションを隠す）
+function fillNetflixRail(boxId, secId, items, typeLabel) {
+  const box = document.getElementById(boxId);
   if (!box) return;
-  try {
-    const data = await loadNetflixData();
-    const items = ((data && data.films) || []).filter(it => it.id && it.poster);
-    if (!items.length) throw new Error("empty");
-    const rail = document.createElement("div");
-    rail.className = "rail";
-    items.forEach(it => rail.appendChild(railCardEl({
-      type: it.type || "movie", id: it.id, title: it.title,
-      poster: it.poster, year: it.year, typeLabel: "映画"
-    }, it.rank)));
-    box.innerHTML = "";
-    box.appendChild(rail);
-  } catch (e) {
-    const sec = document.getElementById("sec-netflix"); // データが無ければレールごと隠す
-    if (sec) sec.remove();
-  }
+  const list = (items || []).filter(it => it.id && it.poster);
+  if (!list.length) { const sec = document.getElementById(secId); if (sec) sec.remove(); return; }
+  const rail = document.createElement("div");
+  rail.className = "rail";
+  list.forEach(it => rail.appendChild(railCardEl({
+    type: it.type, id: it.id, title: it.title,
+    poster: it.poster, year: it.year, typeLabel: typeLabel
+  }, it.rank)));
+  box.innerHTML = "";
+  box.appendChild(rail);
+}
+
+async function renderNetflixRail() {
+  let data = null;
+  try { data = await loadNetflixData(); } catch (e) {}
+  fillNetflixRail("home-netflix", "sec-netflix", (data && data.films) || [], "映画");
+  fillNetflixRail("home-netflix-tv", "sec-netflix-tv", (data && data.tv) || [], "ドラマ");
 }
 
 function renderRecentRail() {

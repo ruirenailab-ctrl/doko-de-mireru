@@ -94,5 +94,97 @@
       "year": "2024",
       "netflix_title": "A Girl Named Ann"
     }
+  ],
+  "tv": [
+    {
+      "rank": 1,
+      "type": "tv",
+      "id": 300529,
+      "title": "地獄に堕ちるわよ",
+      "poster": "/zJU01gO2x5G6JQHeASTr3fY68ja.jpg",
+      "year": "2026",
+      "netflix_title": "Straight to Hell"
+    },
+    {
+      "rank": 2,
+      "type": "tv",
+      "id": 303143,
+      "title": "멋진 신세계",
+      "poster": "/u2cX3CVzUZLIGVwd9HB7bUhE7OP.jpg",
+      "year": "2026",
+      "netflix_title": "My Royal Nemesis"
+    },
+    {
+      "rank": 3,
+      "type": "tv",
+      "id": 19416,
+      "title": "医龍-Team Medical Dragon-",
+      "poster": "/aO20nHmTSXMwuQqFWVFlpPt3YiK.jpg",
+      "year": "2006",
+      "netflix_title": "Iryu Team Medical Dragon"
+    },
+    {
+      "rank": 4,
+      "type": "tv",
+      "id": 82684,
+      "title": "転生したらスライムだった件",
+      "poster": "/9YcNx1dnNkZ3PZzrMqc52WjCEcw.jpg",
+      "year": "2018",
+      "netflix_title": "That Time I Got Reincarnated as a Slime"
+    },
+    {
+      "rank": 5,
+      "type": "tv",
+      "id": 260463,
+      "title": "黄泉のツガイ",
+      "poster": "/mNqW2jnAogZa0nJ94q1LUum8Hos.jpg",
+      "year": "2026",
+      "netflix_title": "Daemons of the Shadow Realm"
+    },
+    {
+      "rank": 6,
+      "type": "tv",
+      "id": 303405,
+      "title": "九条の大罪",
+      "poster": "/1eHY0eqE6ricIouCyxMfAFm6D6i.jpg",
+      "year": "2026",
+      "netflix_title": "Sins of Kujo"
+    },
+    {
+      "rank": 7,
+      "type": "tv",
+      "id": 311871,
+      "title": "田鎖ブラザーズ",
+      "poster": "/m6UmAAt2X39j6KWeIsATEX2O5qu.jpg",
+      "year": "2026",
+      "netflix_title": "Tagusari Bros."
+    },
+    {
+      "rank": 8,
+      "type": "tv",
+      "id": 259837,
+      "title": "원더풀스",
+      "poster": "/3kSejmL6m5Q8hZsLjeD09LBvxYG.jpg",
+      "year": "2026",
+      "netflix_title": "The WONDERfools"
+    },
+    {
+      "rank": 9,
+      "type": "tv",
+      "id": 315494,
+      "title": "リボーン ～最後のヒーロー～",
+      "poster": "/xlcm1xtiSlUWZm16LBtlYb0SIS6.jpg",
+      "year": "2026",
+      "netflix_title": "Reborn"
+    },
+    {
+      "rank": 10,
+      "type": "tv",
+      "id": 138112,
+      "title": "Bad Boys",
+      "poster": "/vgpp3QfNt884i3b6R3QJHHqpgLm.jpg",
+      "year": "1993",
+      "netflix_title": "Bad Boys"
+    }
   ]
 }

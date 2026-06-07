@@ -47,27 +47,31 @@ def tmdb(path, **params):
 def _norm(s):
     return "".join((s or "").lower().split())
 
-def best_match(title):
+def best_match(title, kind="movie"):
     """Netflixのshow_titleは英語なので英語で検索して完全一致を正しく取る。
     完全一致が複数なら新しい方（Netflixのトレンドは新しめの作品）。
-    完全一致が無ければ票数最大。表示は日本語タイトル。ポスター有り必須。"""
-    d = tmdb("/search/movie", language="en-US", query=title, include_adult="false")
+    完全一致が無ければ票数最大。表示は日本語タイトル。ポスター有り必須。
+    kind: 'movie' or 'tv'"""
+    name_key = "title" if kind == "movie" else "name"
+    orig_key = "original_title" if kind == "movie" else "original_name"
+    date_key = "release_date" if kind == "movie" else "first_air_date"
+    d = tmdb("/search/" + kind, language="en-US", query=title, include_adult="false")
     res = [r for r in d.get("results", []) if r.get("poster_path")]
     if not res:
         return None
     tl = _norm(title)
-    exact = [r for r in res if _norm(r.get("title")) == tl or _norm(r.get("original_title")) == tl]
+    exact = [r for r in res if _norm(r.get(name_key)) == tl or _norm(r.get(orig_key)) == tl]
     if exact:
-        exact.sort(key=lambda r: (r.get("release_date") or ""), reverse=True)
+        exact.sort(key=lambda r: (r.get(date_key) or ""), reverse=True)
         r = exact[0]
     else:
         res.sort(key=lambda r: (r.get("vote_count", 0), r.get("popularity", 0)), reverse=True)
         r = res[0]
-    ja = tmdb("/movie/%s" % r["id"], language="ja-JP")  # 表示用の日本語タイトル/ポスター
-    date = ja.get("release_date") or r.get("release_date") or ""
+    ja = tmdb("/%s/%s" % (kind, r["id"]), language="ja-JP")  # 表示用の日本語タイトル/ポスター
+    date = ja.get(date_key) or r.get(date_key) or ""
     return {
-        "rank": None, "type": "movie", "id": r["id"],
-        "title": ja.get("title") or r.get("title") or r.get("original_title") or "(タイトル不明)",
+        "rank": None, "type": kind, "id": r["id"],
+        "title": ja.get(name_key) or r.get(name_key) or r.get(orig_key) or "(タイトル不明)",
         "poster": ja.get("poster_path") or r.get("poster_path"),
         "year": date[:4] if date else "—",
     }
@@ -80,31 +84,38 @@ def main():
     if not rows:
         raise SystemExit("JPデータが見つかりません")
     latest = max(r["week"] for r in rows)
-    films = sorted([r for r in rows if r["week"] == latest and r["category"] == "Films"],
-                   key=lambda r: int(r["weekly_rank"]))[:10]
-    print(f"最新週 {latest} / 映画 {len(films)}件 を突合中...", file=sys.stderr)
-    out = []
-    for r in films:
-        m = best_match(r["show_title"])
-        time.sleep(0.2)
-        if not m:
-            print(f"  ❌ 突合失敗: {r['show_title']}", file=sys.stderr)
-            continue
-        m["rank"] = int(r["weekly_rank"])
-        m["netflix_title"] = r["show_title"]
-        out.append(m)
-    out.sort(key=lambda x: x["rank"])
+
+    def build(category, kind):
+        top = sorted([r for r in rows if r["week"] == latest and r["category"] == category],
+                     key=lambda r: int(r["weekly_rank"]))[:10]
+        print(f"最新週 {latest} / {category} {len(top)}件 を突合中...", file=sys.stderr)
+        out = []
+        for r in top:
+            m = best_match(r["show_title"], kind)
+            time.sleep(0.2)
+            if not m:
+                print(f"  ❌ 突合失敗: {r['show_title']}", file=sys.stderr)
+                continue
+            m["rank"] = int(r["weekly_rank"])
+            m["netflix_title"] = r["show_title"]
+            out.append(m)
+        out.sort(key=lambda x: x["rank"])
+        return out
+
+    films = build("Films", "movie")
+    tv = build("TV", "tv")
     payload = {
         "source": "Netflix Top 10 (公式) × TMDB",
         "region": "JP",
         "week": latest,
         "generated_at": datetime.date.today().isoformat(),
-        "films": out,
+        "films": films,
+        "tv": tv,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f"✅ 書き出し {OUT} ({len(out)}件 / 週 {latest})", file=sys.stderr)
+    print(f"✅ 書き出し {OUT} (映画{len(films)}件/ドラマ{len(tv)}件 / 週 {latest})", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
