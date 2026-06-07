@@ -1214,6 +1214,14 @@ async function openDetail(type, id) {
     });
     // 「無料」（完全無料＋広告つき無料）を1タブに集約
     jp.freeAll = dedupeProviders([].concat(jp.free || [], jp.ads || []));
+    // Netflix公式Top10で配信確認済みの作品は、TMDBにNetflixが無くても見放題に補完
+    // （JustWatch由来データの遅延対策。Netflix自身のランキング＝配信中が確定）
+    if (type === "movie" && netflixMovieIds.has(detail.id)) {
+      jp.flatrate = jp.flatrate || [];
+      if (!jp.flatrate.some(p => p.provider_id === 8)) {
+        jp.flatrate.unshift({ provider_id: 8, provider_name: "Netflix", logo_path: NETFLIX_LOGO });
+      }
+    }
     detailState = { type, detail, jp, link: jp.link || null, activeTab: pickDefaultTab(jp) };
     recordRecent(favItemFromDetail(type, detail)); // 閲覧履歴に記録（トラフィック）
     renderDetail();
@@ -1850,15 +1858,33 @@ function recordRecent(item) {
   try { localStorage.setItem("recentlyViewed", JSON.stringify(recentlyViewed)); } catch (e) {}
 }
 
-// Netflix公式Top10（週次バッチが assets/netflix_jp_top10.json を更新）
+// Netflix公式Top10データ（週次バッチが assets/netflix_jp_top10.json を更新）。
+// 1回だけ取得しキャッシュ。films[].id は「今 Netflix JP で配信中」が確定なので、
+// TMDBにNetflixが無い作品の見放題補完にも使う（JustWatchのデータ遅延対策）。
+const NETFLIX_LOGO = "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg";
+let netflixMovieIds = new Set();
+let _netflixData = null;
+function loadNetflixData() {
+  if (!_netflixData) {
+    _netflixData = fetch("assets/netflix_jp_top10.json", { cache: "no-cache" })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null)
+      .then(data => {
+        if (data && Array.isArray(data.films)) {
+          data.films.forEach(f => { if (f.id) netflixMovieIds.add(f.id); });
+        }
+        return data;
+      });
+  }
+  return _netflixData;
+}
+
 async function renderNetflixRail() {
   const box = document.getElementById("home-netflix");
   if (!box) return;
   try {
-    const res = await fetch("assets/netflix_jp_top10.json", { cache: "no-cache" });
-    if (!res.ok) throw new Error("no data");
-    const data = await res.json();
-    const items = (data.films || []).filter(it => it.id && it.poster);
+    const data = await loadNetflixData();
+    const items = ((data && data.films) || []).filter(it => it.id && it.poster);
     if (!items.length) throw new Error("empty");
     const rail = document.createElement("div");
     rail.className = "rail";
@@ -1934,6 +1960,7 @@ favBtn.addEventListener("click", goFavorites);
 
 // 初期表示＝ホーム（履歴のベース）。URLに作品指定があればその詳細を上に重ねる
 updateFavBtn();
+loadNetflixData(); // Netflix配信確認用IDを先読み（ディープリンクでも補完が効くように）
 replaceNav({ view: "home" });
 renderHome();
 openFromUrl();
