@@ -739,7 +739,7 @@ function catBrowseConfig(id, name) {
     watch_region: REGION,
     with_watch_monetization_types: "flatrate|free|ads|rent|buy",
     with_origin_country: "JP|US",
-    "vote_count.gte": "80"
+    "vote_count.gte": "40"
   };
   if (myServices.size > 0) params.with_watch_providers = myServicesParam();
   return { title: "🎬 " + name, type: "movie", availMode: null, path: "/discover/movie", params, key: "cat" + id };
@@ -757,7 +757,7 @@ async function renderHome() {
     + rowSkeleton("home-trending-movie", "🔥 今週話題の映画", "trendMovie")
     + rowSkeleton("home-trending-tv", "📺 今週話題のドラマ", "trendTv")
     + rowSkeleton("home-popular", "📈 いま日本で人気の配信作品", "popular")
-    + rowSkeleton("home-new", "🆕 最近配信が始まった映画", "fresh")
+    + rowSkeleton("home-new", "🎌 最近の高評価な邦画", "fresh")
     + rowSkeleton("home-toprated", "⭐ 名作・高評価", "toprated")
     + '<section class="row"><h2 class="row-title">🎬 カテゴリ別' + filterTag
     + '<button class="more-link" id="cat-more">もっとみる ›</button></h2>'
@@ -787,10 +787,12 @@ async function renderHome() {
     popular: { title: "📈 いま日本で人気の配信作品", type: "movie", availMode: "flatrate", path: "/discover/movie",
       params: { watch_region: REGION, with_watch_monetization_types: "flatrate", sort_by: "popularity.desc",
         "vote_count.gte": "300", include_adult: "false" } },
-    fresh: { title: "🆕 最近配信が始まった映画", type: "movie", availMode: "flatrate", path: "/discover/movie",
-      params: { watch_region: REGION, with_watch_monetization_types: "flatrate", with_origin_country: "JP|US",
-        sort_by: "popularity.desc", "release_date.gte": fmtDate(yearsAgo(1)), "release_date.lte": fmtDate(today),
-        "vote_count.gte": "20", include_adult: "false" } },
+    // 邦画スコープ＝TMDB人気度が低い配信開始直後の話題邦画（例:国宝）も浮上させる
+    fresh: { title: "🎌 最近の高評価な邦画", type: "movie", availMode: "flatrate", path: "/discover/movie",
+      params: { with_original_language: "ja", watch_region: REGION, with_watch_monetization_types: "flatrate",
+        sort_by: "vote_average.desc", "vote_count.gte": "40",
+        "primary_release_date.gte": fmtDate(yearsAgo(2)), "primary_release_date.lte": fmtDate(today),
+        include_adult: "false" } },
     toprated: { title: "⭐ 名作・高評価", type: "movie", availMode: null, path: "/discover/movie",
       params: { with_original_language: "ja", sort_by: "vote_average.desc", "vote_count.gte": "300",
         include_adult: "false", watch_region: REGION, with_watch_monetization_types: "flatrate|free|ads|rent|buy" } }
@@ -985,7 +987,7 @@ async function loadGenre(genreId, genreName) {
       // 見放題/無料/レンタル/購入のいずれかで視聴可能な作品（話題・人気順）
       with_watch_monetization_types: "flatrate|free|ads|rent|buy",
       with_origin_country: "JP|US",              // 邦画＋ハリウッド（外国語ローカル作品を排除）
-      "vote_count.gte": "80",
+      "vote_count.gte": "40",
       page: "1"
     };
     // マイサービス設定時はそのサービスで見られる作品に絞る
