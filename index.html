@@ -616,7 +616,7 @@ function makeItem(raw, defaultType) {
 // ====================================================================
 //  ホーム
 // ====================================================================
-async function loadHome() {
+async function renderHome() {
   goHomeView();
   const hasFilter = myServices.size > 0;
   const filterTag = hasFilter ? '<span class="filter-tag">マイサービス</span>' : "";
@@ -722,7 +722,7 @@ function railCardEl(it, rank) {
   card.className = "rail-card";
   card.innerHTML = posterEl
     + '<p class="rail-title">' + rankEl + escapeHTML(it.title) + '</p>';
-  card.addEventListener("click", () => openDetail(it.type, it.id));
+  card.addEventListener("click", () => goDetail(it.type, it.id));
   return card;
 }
 
@@ -816,7 +816,7 @@ function gridCardEl(it) {
     + '<p class="card-title">' + escapeHTML(it.title) + '</p>'
     + '<p class="card-meta">' + it.year + '<span class="badge">' + it.typeLabel + '</span></p>'
     + '</div>';
-  card.addEventListener("click", () => openDetail(it.type, it.id));
+  card.addEventListener("click", () => goDetail(it.type, it.id));
   return card;
 }
 
@@ -826,10 +826,14 @@ function gridCardEl(it) {
 async function doSearch() {
   const query = qInput.value.trim();
   if (!query) {
-    loadHome(); // 空検索ならホームへ
+    goHome(); // 空検索ならホームへ
     return;
   }
+  pushNav({ view: "search", q: query });
+  await renderSearch(query);
+}
 
+async function renderSearch(query) {
   homeEl.style.display = "none";
   favview.style.display = "none";
   state.query = query;
@@ -942,9 +946,6 @@ async function openDetail(type, id) {
       tmdbFetch("/" + type + "/" + id, { language: LANG, append_to_response: "videos,credits,recommendations" }),
       tmdbFetch("/" + type + "/" + id + "/watch/providers")
     ]);
-
-    // 共有用にURLを更新（戻る/シェアで使う）
-    setUrlForDetail(type, id);
 
     const jp = (providers.results && providers.results.JP) || {};
     // 同一サービスの重複（広告つき/なし等）をまとめる
@@ -1176,7 +1177,7 @@ function renderDetail() {
   });
   // 似た作品 → モーダル内で作品を切り替え
   modal.querySelectorAll(".rail-card[data-id]").forEach(c => {
-    c.addEventListener("click", () => openDetail(c.dataset.type, c.dataset.id));
+    c.addEventListener("click", () => goDetail(c.dataset.type, c.dataset.id));
   });
   // シェア
   const sb = document.getElementById("shareBtn");
@@ -1188,7 +1189,7 @@ function renderDetail() {
     ft.classList.toggle("on", now);
     ft.textContent = now ? "♥ お気に入り済み" : "♡ お気に入り";
     showToast(now ? "お気に入りに追加しました" : "お気に入りから削除しました");
-    if (favview.style.display === "block") showFavoritesView();
+    if (favview.style.display === "block") renderFavorites();
   });
   bindClose();
 }
@@ -1198,12 +1199,21 @@ function bindClose() {
   if (btn) btn.addEventListener("click", closeModal);
 }
 
-function closeModal() {
+// モーダルのDOMを閉じるだけ（履歴は触らない・popstateから呼ばれる）
+function closeModalUI() {
   overlay.classList.remove("open");
   document.body.style.overflow = "";
   modal.innerHTML = "";
   detailState = null;
-  clearUrlDetail();
+}
+
+// ×・背景タップ：履歴を1つ戻す＝ブラウザの戻ると同じ挙動に統一
+function closeModal() {
+  if (history.state && history.state.view === "detail") {
+    history.back();
+  } else {
+    closeModalUI();
+  }
 }
 
 overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
@@ -1237,18 +1247,81 @@ async function shareDetail() {
   }
 }
 
-// --- ディープリンク（URLパラメータで作品を直接開く） ---
-function setUrlForDetail(type, id) {
-  try { history.replaceState(null, "", "?t=" + type + "&id=" + id); } catch (e) {}
+// ====================================================================
+//  履歴ナビゲーション（ブラウザの戻る/進むに対応）
+//  ・go*()  : 履歴を積んでから描画（ユーザー操作の入口）
+//  ・render*()/openDetail() : 描画のみ（履歴は触らない／popstateから呼ぶ）
+//  モーダルは下の画面DOMを保持したまま重なるので、戻る＝再フェッチ無しで即閉じる
+// ====================================================================
+function pathFor(st) {
+  const base = location.pathname;
+  if (st && st.view === "detail") return base + "?t=" + st.type + "&id=" + st.id;
+  if (st && st.view === "search") return base + "?q=" + encodeURIComponent(st.q);
+  if (st && st.view === "favorites") return base + "?view=fav";
+  return base; // home
 }
-function clearUrlDetail() {
-  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+function pushNav(st) {
+  try { history.pushState(st, "", pathFor(st)); } catch (e) {}
 }
+function replaceNav(st) {
+  try { history.replaceState(st, "", pathFor(st)); } catch (e) {}
+}
+
+function goHome() {
+  if (history.state && history.state.view === "home") { renderHome(); return; }
+  pushNav({ view: "home" });
+  renderHome();
+}
+function goFavorites() {
+  if (history.state && history.state.view === "favorites") { renderFavorites(); return; }
+  pushNav({ view: "favorites" });
+  renderFavorites();
+}
+function goDetail(type, id) {
+  pushNav({ view: "detail", type, id });
+  openDetail(type, id);
+}
+
+// 履歴の状態に合わせて画面を復元（戻る/進む時）
+function applyState(st) {
+  st = st || { view: "home" };
+  if (st.view === "detail") {
+    openDetail(st.type, st.id);
+    return;
+  }
+  // detail以外：モーダルが開いていれば閉じる
+  if (overlay.classList.contains("open")) closeModalUI();
+
+  if (st.view === "search" && st.q) {
+    qInput.value = st.q;
+    // 同じ検索結果が残っていれば再フェッチせず表示だけ戻す
+    if (state.query === st.q && grid.children.length) {
+      homeEl.style.display = "none";
+      favview.style.display = "none";
+      results.innerHTML = "";
+      gridWrap.style.display = "block";
+    } else {
+      renderSearch(st.q);
+    }
+  } else if (st.view === "favorites") {
+    renderFavorites();
+  } else {
+    // home：DOMが残っていれば表示だけ戻す（再フェッチ回避）
+    qInput.value = "";
+    gridWrap.style.display = "none";
+    favview.style.display = "none";
+    homeEl.style.display = "block";
+    if (!homeEl.innerHTML.trim()) renderHome();
+  }
+}
+window.addEventListener("popstate", (e) => applyState(e.state));
+
+// 共有URL（?t=&id=）で開いた場合：home(ベース)の上にdetailを積む→戻るでhomeへ
 function openFromUrl() {
   try {
     const p = new URLSearchParams(location.search);
     const t = p.get("t"), id = p.get("id");
-    if ((t === "movie" || t === "tv") && id) openDetail(t, id);
+    if ((t === "movie" || t === "tv") && id) goDetail(t, id);
   } catch (e) {}
 }
 
@@ -1305,7 +1378,7 @@ function openSettings() {
     );
     saveMyServices();
     closeSettings();
-    loadHome();
+    renderHome();
   });
 }
 function closeSettings() {
@@ -1376,8 +1449,8 @@ function renderFavRail() {
   box.appendChild(rail);
 }
 
-// お気に入り一覧ビュー
-function showFavoritesView() {
+// お気に入り一覧ビュー（描画のみ）
+function renderFavorites() {
   homeEl.style.display = "none";
   gridWrap.style.display = "none";
   results.innerHTML = "";
@@ -1419,14 +1492,15 @@ function escapeHTML(str) {
 // --- イベント ---
 searchBtn.addEventListener("click", doSearch);
 qInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
-homeLink.addEventListener("click", () => { qInput.value = ""; loadHome(); });
+homeLink.addEventListener("click", () => { qInput.value = ""; goHome(); });
 settingsBtn.addEventListener("click", openSettings);
 settingsOverlay.addEventListener("click", (e) => { if (e.target === settingsOverlay) closeSettings(); });
-favBtn.addEventListener("click", showFavoritesView);
+favBtn.addEventListener("click", goFavorites);
 
-// 初期表示＝ホーム。URLに作品指定があればその詳細を開く
+// 初期表示＝ホーム（履歴のベース）。URLに作品指定があればその詳細を上に重ねる
 updateFavBtn();
-loadHome();
+replaceNav({ view: "home" });
+renderHome();
 openFromUrl();
 </script>
 </body>
